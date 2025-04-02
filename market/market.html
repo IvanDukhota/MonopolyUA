@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Monopoly - Main Page</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="market.css" />
+</head>
+
+<body>
+  <header class="main-header">
+    <header class="main-header">
+      <div class="header-content">
+        <div class="logo"><a href="../main page/main.html">Monopoly</a></div>
+        <nav>
+          <ul class="nav-list">
+            <li><a href="../main page/main.html#rulesSection">Rules</a></li>
+            <li><a href="../market/market.html">Market</a></li>
+            <li><a href="#">Create/find game</a></li>
+          </ul>
+        </nav>
+        <a class="login-btn"></a>
+      </div>
+    </header>
+
+    <section class="hero-section">
+      <div class="hero-content">
+        <div class="buy-part">
+          <div class="buy-row-search">
+            <input type="text" placeholder="Type name of the item..." class="item-search">
+          </div>
+
+          <div class="buy-row-types">
+            <button id="cubesBtn" class="buy-row-types-btn">Cubes</button>
+            <button id="cardsBtn" class="buy-row-types-btn">Cards</button>
+            <button id="casesBtn" class="buy-row-types-btn">Cases</button>
+          </div>
+
+          <div class="buy-row-results"></div>
+        </div>
+
+        <div class="sales-part"></div>
+      </div>
+    </section>
+
+    <div id="sidebar" class="sidebar">
+      <div class="sidebar-content">
+        <button id="closeSidebar" class="close-sidebar">&times;</button>
+
+        <a href="../profile/profile.html" class="profile-btn">Go to profile</a>
+
+        <h3>Your current money: 100</h3>
+        <div class="notifications-title">
+          <h4>Notifications</h4>
+        </div>
+        <div class="notifications">
+          <div class="notification-section">
+            <h4>New Messages</h4>
+            <p>You have 3 unread messages.</p>
+          </div>
+          <div class="notification-section">
+            <h4>Game Updates</h4>
+            <p>Your game stats have been updated!</p>
+          </div>
+          <div class="notification-section">
+            <h4>System Alerts</h4>
+            <p>Your account has been verified.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <footer class="main-footer">
+      <div class="footer-content">
+        <p>Monopoly © 2025</p>
+        <p>Контакты: monopoly@support.com</p>
+        <p>Тел: +3801234567</p>
+      </div>
+    </footer>
+    <script src="market.js"></script>
+</body>
+
+</html>

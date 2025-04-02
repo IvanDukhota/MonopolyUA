@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Monopoly - Profile</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="profile.css" />
+</head>
+
+<body>
+  <header class="main-header">
+    <div class="header-content">
+      <div class="logo"><a href="../main page/main.html">Monopoly</a></div>
+      <nav>
+        <ul class="nav-list">
+          <li><a href="../main page/main.html#rulesSection">Rules</a></li>
+          <li><a href="../market/market.html">Market</a></li>
+          <li><a href="#">Create/find game</a></li>
+        </ul>
+      </nav>
+      <a class="login-btn"></a>
+    </div>
+  </header>
+
+  <section class="profile-section">
+    <div class="profile-container">
+      <div class="profile-left">
+        <div class="avatar-block">
+          <img src="../images/prof.jpg" alt="Profile Avatar" class="avatar-img" />
+          <button class="btn-change-pic">Change picture</button>
+        </div>
+
+        <hr class="divider">
+
+        <div class="user-info">
+          <label for="nickname">Nickname:</label>
+          <p id="nickname">UserNickname</p>
+
+          <label for="region">Region:</label>
+          <p id="region">Somewhere</p>
+
+          <button class="btn-edit-profile">Edit profile</button>
+        </div>
+      </div>
+
+      <div class="profile-right">
+        <div class="stats-left">
+          <h3>Ingame stats</h3>
+          <div class="stats-list">
+            <p>Games played: <span id="gamesPlayed">0</span></p>
+            <p>Wins: <span id="winsCount">0</span></p>
+            <p>Loss: <span id="lossCount">0</span></p>
+            <p>Win percentage: <span id="winPerc">0%</span></p>
+            <p>Total points: <span id="totalPoints">0</span></p>
+          </div>
+        </div>
+
+        <div class="friends-list">
+          <h3>Friends List</h3>
+          <div class="friends-container" id="friendsContainer">
+          </div>
+          <div class="friends-pagination" id="pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="editProfileModal" class="modal">
+      <div class="modal-content">
+        <span class="close-btn" id="closeModalBtn">&times;</span>
+        <h2>Edit Profile</h2>
+
+        <label for="editNickname">Nickname:</label>
+        <input type="text" id="editNickname" value="UserNickname" />
+
+        <label for="editRegion">Region:</label>
+        <input type="text" id="editRegion" value="Somewhere" />
+
+        <label for="editPassword">Password:</label>
+        <input type="password" id="editPassword" />
+
+        <label for="editConfirmPassword">Confirm Password:</label>
+        <input type="password" id="editConfirmPassword" />
+
+        <button id="confirmEdit" class="btn-edit-profile">Confirm</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="inventory-section">
+
+    <div class="inv-head">
+      <h1>Inventory</h1>
+    </div>
+
+    <div class="card-part">
+      <div class="card-part-info">
+        <h1>Cards:</h1>
+        <div class="card-part-info-buttons">
+          <button id="topBtn" class="active">Top</button>
+          <button id="rightBtn">Right</button>
+          <button id="bottomBtn">Bottom</button>
+          <button id="leftBtn">Left</button>
+        </div>
+      </div>
+    
+      <div class="card-part-el">
+        <div class="item" data-id="1">1</div>
+        <div class="item" data-id="2">2</div>
+        <div class="item" data-id="3">3</div>
+        <div class="item" data-id="4">4</div>
+        <div class="item" data-id="5">5</div>
+        <div class="item" data-id="6">6</div>
+        <div class="item" data-id="7">7</div>
+        <div class="item" data-id="8">8</div>
+        <div class="item" data-id="9">9</div>
+        <div class="item" data-id="10">10</div>
+        <div class="item" data-id="11">11</div>
+        <div class="item" data-id="12">12</div>
+      </div>
+    </div>
+    
+
+    <div class="cubes-part"></div>
+
+    <div class="cases-part"></div>
+
+  </section>
+
+  <div id="sidebar" class="sidebar">
+    <div class="sidebar-content">
+      <button id="closeSidebar" class="close-sidebar">&times;</button>
+
+      <a href="../profile/profile.html" class="profile-btn">Go to profile</a>
+
+      <h3>Your current money: 100</h3>
+      <div class="notifications-title">
+        <h4>Notifications</h4>
+      </div>
+      <div class="notifications">
+        <div class="notification-section">
+          <h4>New Messages</h4>
+          <p>You have 3 unread messages.</p>
+        </div>
+        <div class="notification-section">
+          <h4>Game Updates</h4>
+          <p>Your game stats have been updated!</p>
+        </div>
+        <div class="notification-section">
+          <h4>System Alerts</h4>
+          <p>Your account has been verified.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+  <footer class="main-footer">
+    <div class="footer-content">
+      <p>Monopoly © 2025</p>
+      <p>Contacts: monopoly@support.com</p>
+      <p>Tel: +3801234567</p>
+    </div>
+  </footer>
+
+  <script>
+    const friends = [
+      "FriendOne", "FriendTwo", "FriendThree", "FriendFour", "FriendFive",
+      "FriendSix", "FriendSeven", "FriendEight", "FriendNine", "FriendTen",
+      "FriendEleven", "FriendTwelve", "FriendThirteen", "FriendFourteen",
+      "FriendFifteen", "FriendSixteen"
+    ];
+
+    const modal = document.getElementById("editProfileModal");
+    const closeModalBtn = document.getElementById("closeModalBtn");
+    closeModalBtn.addEventListener("click", () => {
+      modal.classList.remove('show');
+      document.body.classList.remove('modal-open');
+    });
+
+    const editButton = document.querySelector(".btn-edit-profile");
+    const confirmEditBtn = document.getElementById("confirmEdit");
+
+    editButton.addEventListener("click", () => {
+      modal.classList.add('show');
+      document.body.classList.add('modal-open');
+    });
+
+    confirmEditBtn.addEventListener("click", () => {
+      const nickname = document.getElementById("editNickname").value;
+      const region = document.getElementById("editRegion").value;
+      const password = document.getElementById("editPassword").value;
+      const confirmPassword = document.getElementById("editConfirmPassword").value;
+
+      if (password !== confirmPassword) {
+        alert("Passwords do not match!");
+        return;
+      }
+
+      alert(`Profile updated:\nNickname: ${nickname}\nRegion: ${region}`);
+      modal.classList.remove('show');
+      document.body.classList.remove('modal-open');
+    });
+
+    const itemsPerPage = 8;
+    let currentPage = 1;
+    function paginateFriends() {
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const endIndex = currentPage * itemsPerPage;
+      const friendsToDisplay = friends.slice(startIndex, endIndex);
+
+      const friendsContainer = document.getElementById('friendsContainer');
+      friendsContainer.innerHTML = '';
+
+      friendsToDisplay.forEach(friend => {
+        const friendItem = document.createElement('div');
+        friendItem.className = 'friend-item';
+        friendItem.innerHTML = `<span>${friend}</span><button class="remove-friend-btn">Remove</button>`;
+        friendsContainer.appendChild(friendItem);
+      });
+
+      updatePagination();
+    }
+    function updatePagination() {
+      const totalPages = Math.ceil(friends.length / itemsPerPage);
+      const pagination = document.getElementById('pagination');
+
+      pagination.innerHTML = '';
+
+      for (let i = 1; i <= totalPages; i++) {
+        const pageNum = document.createElement('span');
+        pageNum.classList.add('page-num');
+        if (i === currentPage) {
+          pageNum.classList.add('active');
+        }
+        pageNum.textContent = i;
+        pagination.appendChild(pageNum);
+
+        pageNum.addEventListener('click', () => {
+          currentPage = i;
+          paginateFriends();
+        });
+      }
+    }
+
+    const tabs = document.querySelectorAll('.inv-btn');
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active-tab'));
+        tab.classList.add('active-tab');
+        currentTab = tab.id.replace('Tab', '').toLowerCase();
+      });
+    });
+
+    window.onload = function () {
+      paginateFriends();
+    };
+
+
+    const loginBtn = document.querySelector('.login-btn');
+    const sidebar = document.getElementById('sidebar');
+    const closeSidebar = document.getElementById('closeSidebar');
+
+    loginBtn.addEventListener('click', () => {
+      if (sidebar.style.right === '0px') {
+        sidebar.style.right = '-300px';
+        document.body.classList.remove('sidebar-open');
+      } else {
+        sidebar.style.right = '0';
+        document.body.classList.add('sidebar-open');
+      }
+    });
+    closeSidebar.addEventListener('click', () => {
+      sidebar.style.right = '-300px';
+      document.body.classList.remove('sidebar-open');
+    });
+
+
+
+
+    
+const buttons = document.querySelectorAll('.card-part-info-buttons button');
+const items = document.querySelectorAll('.card-part-el .item');
+
+let selectedCards = {
+  top: null,
+  right: null,
+  bottom: null,
+  left: null
+};
+
+let selectedButton = document.querySelector('.card-part-info-buttons button.active');
+
+buttons.forEach(button => {
+  button.addEventListener('click', () => {
+    selectedButton.classList.remove('active');
+    
+    selectedButton = button;
+    selectedButton.classList.add('active');
+    
+    updateCardVisibility();
+  });
+});
+
+items.forEach(item => {
+  item.addEventListener('click', () => {
+    const currentButtonId = selectedButton.id;
+    
+    if (item.classList.contains('selected') && selectedCards[currentButtonId] === item) {
+      item.classList.remove('selected');
+      selectedCards[currentButtonId] = null;
+    } else {
+      if (selectedCards[currentButtonId]) {
+        selectedCards[currentButtonId].classList.remove('selected');
+      }
+      
+      item.classList.add('selected');
+      selectedCards[currentButtonId] = item;
+    }
+    
+    updateCardVisibility();
+  });
+});
+
+function updateCardVisibility() {
+  items.forEach(item => {
+    const cardId = item.dataset.id;
+    const isSelected = Object.keys(selectedCards).some(key => selectedCards[key] && selectedCards[key].dataset.id === cardId);
+
+    if (isSelected) {
+      if (selectedCards[selectedButton.id] !== item) {
+        item.style.display = 'none';
+      } else {
+        item.style.display = 'flex';
+      }
+    } else {
+      item.style.display = 'flex';
+    }
+  });
+}
+  </script>
+</body>
+
+</html>

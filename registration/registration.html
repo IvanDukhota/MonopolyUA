@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Registration</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="registration.css" />
+</head>
+
+<body>
+
+  <div class="registration-container">
+    <div class="form-title">
+      <span>Registration</span>
+      <a href="#" id="switchModeLink">Have an account? Join here</a>
+    </div>
+
+    <form class="registration-form" id="registrationForm">
+
+      <div id="extraFields" class="extra-fields">
+
+        <div id="nicknameBlock">
+          <input type="text" id="nickname" name="nickname" placeholder="Nickname" required />
+        </div>
+      
+        <div id="genderBlock" class="gender-block">
+          <span>Gender:</span>
+          <label>
+            <input type="radio" name="gender" value="male" required />
+            <span>Male</span>
+          </label>
+          <label>
+            <input type="radio" name="gender" value="female" required />
+            <span>Female</span>
+          </label>
+        </div>
+
+        <input type="email" id="email" name="email" placeholder="Email" required />
+      
+      </div>
+
+      <input type="password" id="password" name="password" placeholder="Password" required />
+
+      <input type="password" id="repeatPassword" name="repeatPassword" placeholder="Repeat password" required />
+
+
+      <button type="submit" class="btn-register" id="submitBtn">Registration</button>
+    </form>
+
+    <a href="#" class="google-link">
+      <img src="../images/google.png" alt="Google Icon" class="google-icon">
+      Join with Google
+    </a>
+  </div>
+
+  <script src="registration.js"></script>
+</body>
+
+</html>

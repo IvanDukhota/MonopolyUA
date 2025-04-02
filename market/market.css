@@ -1,0 +1,258 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html,
+body {
+    font-family: 'Poppins', sans-serif;
+    width: 100%;
+    height: 100%;
+    background-color: #1b1b1b;
+    color: #fff;
+    scroll-behavior: smooth;
+}
+
+.main-header {
+    width: 100%;
+    background-color: #111;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 10px 20px;
+}
+
+.logo a {
+    font-size: 24px;
+    font-weight: 600;
+    color: #d32f2f;
+    text-decoration: none;
+}
+
+.logo a:hover {
+    color: #ff5e5e;
+}
+
+.nav-list {
+    list-style: none;
+    display: flex;
+    gap: 20px;
+}
+
+.nav-list a {
+    text-decoration: none;
+    color: #fff;
+    font-weight: 400;
+    transition: color 0.3s ease;
+}
+
+.nav-list a:hover {
+    color: #d32f2f;
+}
+
+.login-btn {
+    width: 50px;
+    height: 50px;
+    background-color: #d32f2f;
+    border-radius: 50%;
+    background-image: url("../images/normaldots.png");
+    background-size: cover;
+    background-position: center;
+    text-decoration: none;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+  }
+  
+  .login-btn:hover {
+    background-color: #a82424;
+    transform: scale(1.05);
+  }
+
+.hero-section {
+    width: 100%;
+    min-height: 60vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 20px;
+    margin-top: 100px;
+}
+
+.hero-content {
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 6px;
+    width: 100%;
+    height: 800px;
+    text-align: center;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
+    display: grid;
+    grid-template-columns: 50% 50%;
+}
+
+.item-search {
+    display: block;
+    margin: 20px auto;
+    padding: 10px;
+    width: 80%;
+    font-size: 16px;
+    border: none;
+    border-radius: 4px;
+    background-color: #333;
+    color: #fff;
+}
+
+.buy-part {
+    border: 1px solid white;
+    display: grid;
+    grid-template-rows: 10% 10% 80%;
+}
+
+.buy-row-search {
+    border: 1px solid white;
+}
+
+.buy-row-types {
+    border: 1px solid white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.buy-row-types-btn {
+    margin: 0 10px;
+    width: 80px;
+    height: 40px;
+    background-color: #d32f2f;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.buy-row-types-btn:hover {
+    background-color: #a82424;
+    transform: scale(1.03);
+}
+
+.buy-row-results {
+    border: 1px solid white;
+}
+
+.sales-part {
+    border: 1px solid white;
+}
+
+.main-footer {
+    width: 100%;
+    background-color: #111;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+  }
+  
+  .footer-content {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  .footer-content p {
+    margin-bottom: 5px;
+    font-size: 14px;
+    color: #666;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    right: -300px; 
+    width: 300px;
+    height: 100%;
+    background-color: #333;
+    color: #fff;
+    padding: 20px;
+    transition: right 0.3s ease;
+    z-index: 9999;
+    overflow-y: auto; 
+  }
+  
+  .profile-btn {
+    display: block;
+    padding: 10px;
+    background-color: #d32f2f;
+    color: white;
+    text-decoration: none;
+    font-size: 18px;
+    margin-bottom: 20px;
+    text-align: center;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+  }
+  
+  .profile-btn:hover {
+    background-color: #a82424;
+  }
+  
+  .close-sidebar {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    text-align: right;
+    cursor: pointer;
+    padding: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .close-sidebar:hover {
+    color: #d32f2f;
+  }
+  
+  .notifications {
+    margin-top: 20px;
+    padding: 10px;
+    background-color: #444;
+    border-radius: 6px;
+    height: 100%;
+    overflow-y: auto;
+  }
+  
+  .notification-section {
+    background-color: #555;
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+  }
+  
+  .notification-section h4 {
+    font-size: 16px;
+    margin-bottom: 5px;
+    color: #ff5e5e;
+  }
+  
+  .notification-section p {
+    font-size: 14px;
+    color: #ccc;
+  }
+  
+  .notifications-title {
+    text-align: center;
+    margin-top: 15px; 
+    margin-bottom: 20px;
+  }
+  
+  body.sidebar-open {
+    overflow: auto;
+  }
+  
