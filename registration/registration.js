@@ -4,11 +4,11 @@ const formTitleSpan = document.querySelector('.form-title span');
 const submitBtn = document.getElementById('submitBtn');
 
 const nicknameBlock = document.getElementById('nicknameBlock');
-const genderBlock   = document.getElementById('genderBlock');
+const genderBlock = document.getElementById('genderBlock');
 
-const nickname   = document.getElementById('nickname');
+const nickname = document.getElementById('nickname');
 const genderMale = genderBlock.querySelector('input[value="male"]');
-const genderFem  = genderBlock.querySelector('input[value="female"]');
+const genderFem = genderBlock.querySelector('input[value="female"]');
 
 let isLoginMode = false;
 
@@ -19,8 +19,8 @@ form.addEventListener('submit', function (e) {
     const emailValue = document.getElementById('email').value;
     const passwordValue = document.getElementById('password').value;
     alert(`Вход с данными: ${emailValue} / ${passwordValue}`);
-    
-    fetch('http://localhost:8000/api/login/', {
+
+    fetch('http://127.0.0.1:8000/api/registration/login/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -30,15 +30,20 @@ form.addEventListener('submit', function (e) {
         password: passwordValue
       }),
     })
-    .then(response => response.json())
-    .then(data => {
-      alert('Вход успешен');
-      console.log(data);
-    })
-    .catch(error => {
-      alert('Ошибка входа');
-      console.error(error);
-    });
+      .then(response => response.json())
+      .then(data => {
+        if (data.access) {
+          localStorage.setItem('authToken', data.access);
+          alert('Вход успешен');
+          console.log(data);
+        } else {
+          alert('Токен не получен');
+        }
+      })
+      .catch(error => {
+        alert('Ошибка входа');
+        console.error(error);
+      });
 
     return;
   }
@@ -55,7 +60,7 @@ form.addEventListener('submit', function (e) {
   const genderValue = genderMale.checked ? 'male' : 'female';
   const emailValue = document.getElementById('email').value;
 
-  fetch('http://localhost:8000/api/register/', {
+  fetch('http://127.0.0.1:8000/api/registration/register/', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -63,24 +68,29 @@ form.addEventListener('submit', function (e) {
     body: JSON.stringify({
       email: emailValue,
       password: password,
-      nickname: nicknameValue,
+      username: nicknameValue,
       gender: genderValue
     }),
   })
-  .then(response => response.json())
-  .then(data => {
-    alert('Регистрация прошла успешно!');
-    form.reset();
-    console.log(data);
-  })
-  .catch(error => {
-    alert('Ошибка регистрации');
-    console.error(error);
-  });
+    .then(response => response.json())
+    .then(data => {
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+        alert('Регистрация прошла успешно!');
+        form.reset();
+        console.log(data);
+      } else {
+        alert('Токен не получен');
+      }
+    })
+    .catch(error => {
+      alert('Ошибка регистрации');
+      console.error(error);
+    });
 });
 
 
-switchModeLink.addEventListener('click', function(e) {
+switchModeLink.addEventListener('click', function (e) {
   e.preventDefault();
   toggleMode();
 });
@@ -100,7 +110,7 @@ function switchToLogin() {
   submitBtn.textContent = 'Login';
 
   nicknameBlock.style.display = 'none';
-  genderBlock.style.display   = 'none';
+  genderBlock.style.display = 'none';
 
   nickname.removeAttribute('required');
   genderMale.removeAttribute('required');
@@ -114,7 +124,7 @@ function switchToRegistration() {
   submitBtn.textContent = 'Registration';
 
   nicknameBlock.style.display = 'block';
-  genderBlock.style.display   = 'flex';
+  genderBlock.style.display = 'flex';
 
   nickname.setAttribute('required', 'true');
   genderMale.setAttribute('required', 'true');
