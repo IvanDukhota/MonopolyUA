@@ -15,13 +15,3 @@ closeSidebar.addEventListener('click', () => {
   sidebar.style.right = '-300px';
   document.body.classList.remove('sidebar-open');
 });
-
-
-  const sortBtn = document.getElementById("sort-direction-btn");
-  let ascending = true;
-
-  sortBtn.addEventListener("click", () => {
-    ascending = !ascending;
-    sortBtn.textContent = ascending ? "↑" : "↓";
-  });
-
