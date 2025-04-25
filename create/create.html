@@ -37,10 +37,74 @@
 
             <div class="create-game-settings">
 
+                <div class="create-game-settings-parts">
+                    <h1>Input name of the lobby:</h1>
+                    <input type="text" class="create-input">
+                </div>
+
+                <div class="create-game-settings-parts">
+                    <h1>Select region:</h1>
+
+                    <select id="sort-select">
+                        <option value="rarity">Europe</option>
+                        <option value="price">South/North America</option>
+                        <option value="quantity">Asia</option>
+                        <option value="quantity">Africa</option>
+                    </select>
+
+                </div>
+
+                <div class="create-game-settings-parts">
+
+                    <h1>Amount of players:</h1>
+
+                    <select id="sort-select">
+                        <option value="rarity">1</option>
+                        <option value="price">2</option>
+                        <option value="quantity">3</option>
+                        <option value="quantity">4</option>
+                    </select>
+
+                </div>
+
+                <div class="create-game-settings-parts">
+                    <h1>Allow users skins change?</h1>
+                    <input type="checkbox" id="myCheckbox" class="create-checkbox">
+                </div>
+
+                <div class="create-game-settings-result">
+
+                    <div class="create-game-settings-result-info">
+                        <h1>Your lobby</h1>
+                        <button>Delete lobby</button>
+                    </div>
+
+                    <div class="create-game-settings-result-lobby">
+                        <div class="create-game-settings-result-lobby">
+                            <div class="player-square disabled" id="square1"></div>
+                            <div class="player-square" id="square2" onclick="openModal('square2')"></div>
+                            <div class="player-square" id="square3" onclick="openModal('square3')"></div>
+                            <div class="player-square" id="square4" onclick="openModal('square4')"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="create-game-button">
                 <button>Create</button>
+            </div>
+
+            <button class="go-game-button" style="display: none;">Go</button>
+
+        </div>
+
+        <div class="modal" id="friendsModal">
+            <div class="modal-content">
+                <div class="friends-list">
+                    <h3>Select a friend to invite:</h3>
+                    <div id="friendsContainer" class="friends-container"></div>
+                    <div id="pagination" class="friends-pagination"></div>
+                </div>
             </div>
         </div>
 
@@ -50,10 +114,42 @@
                 <h1>Find rating game</h1>
             </div>
 
-            <div class="rating-system-data"></div>
+            <div class="rating-system-data">
+
+                <div class="rating-system-data-container">
+                    <div>
+                        <h1>Lubernen</h1>
+                    </div>
+                    <div>
+                        <p class="p1">Your rank:</p>
+                        <p class="p2">Silver Elite</p>
+                    </div>
+                    <div>
+                        <p class="p1">Your rating:</p>
+                        <p class="p2">100mmr</p>
+                    </div>
+                    <div>
+                        <p class="p1">Position in season rating:</p>
+                        <p class="p2">top 600+</p>
+                    </div>
+                    <div>
+                        <p class="p1">Position in all time rating:</p>
+                        <p class="p2">top 10000</p>
+                    </div>
+                </div>
+
+                <div class="rating-system-data-ticon">
+                    <h1>Search:</h1>
+                    <div class="rating-system-data-timer">
+                        <p id="timer">00:00:00</p>
+                    </div>
+
+                </div>
+
+            </div>
 
             <div class="rating-system-button">
-                <button>Start</button>
+                <button onclick="startTimer()">Start</button>
             </div>
 
         </div>
@@ -64,32 +160,133 @@
                 <h1>Games list</h1>
             </div>
 
-            <div class="games-list-view"></div>
+            <div class="games-list-view">
+
+                <div class="games-list-view-row">
+
+                    <div class="games-list-view-row-1">
+                        <table class="game-info-table">
+                            <tr>
+                              <td>Lobby name</td>
+                              <td>Region</td>
+                              <td>Players</td>
+                              <td>Skins?</td>
+                            </tr>
+                            <tr>
+                              <td>Test1</td>
+                              <td>Europe</td>
+                              <td>3</td>
+                              <td>Allowed</td>
+                            </tr>
+                          </table>
+                    </div>
+
+                    <div class="games-list-view-row-2">
+                        <button>Join</button>
+                    </div>
+
+                </div>
+
+                <div class="games-list-view-row">
+
+                    <div class="games-list-view-row-1">
+                        <table class="game-info-table">
+                            <tr>
+                              <td>Lobby name</td>
+                              <td>Region</td>
+                              <td>Players</td>
+                              <td>Skins?</td>
+                            </tr>
+                            <tr>
+                              <td>Test1</td>
+                              <td>Europe</td>
+                              <td>3</td>
+                              <td>Allowed</td>
+                            </tr>
+                          </table>
+                    </div>
+
+                    <div class="games-list-view-row-2">
+                        <button>Join</button>
+                    </div>
+                </div>
+
+                <div class="games-list-view-row">
+
+                    <div class="games-list-view-row-1">
+                        <table class="game-info-table">
+                            <tr>
+                              <td>Lobby name</td>
+                              <td>Region</td>
+                              <td>Players</td>
+                              <td>Skins?</td>
+                            </tr>
+                            <tr>
+                              <td>Test1</td>
+                              <td>Europe</td>
+                              <td>3</td>
+                              <td>Allowed</td>
+                            </tr>
+                          </table>
+                    </div>
+
+                    <div class="games-list-view-row-2">
+                        <button>Join</button>
+                    </div>
+                </div>
+
+                <div class="games-list-view-row">
+
+                    <div class="games-list-view-row-1">
+                        <table class="game-info-table">
+                            <tr>
+                              <td>Lobby name</td>
+                              <td>Region</td>
+                              <td>Players</td>
+                              <td>Skins?</td>
+                            </tr>
+                            <tr>
+                              <td>Test1</td>
+                              <td>Europe</td>
+                              <td>3</td>
+                              <td>Allowed</td>
+                            </tr>
+                          </table>
+                    </div>
+
+                    <div class="games-list-view-row-2">
+                        <button>Join</button>
+                    </div>
+                </div>
+
+                <div class="games-list-view-row">
+
+                    <div class="games-list-view-row-1">
+                        <table class="game-info-table">
+                            <tr>
+                              <td>Lobby name</td>
+                              <td>Region</td>
+                              <td>Players</td>
+                              <td>Skins?</td>
+                            </tr>
+                            <tr>
+                              <td>Test1</td>
+                              <td>Europe</td>
+                              <td>3</td>
+                              <td>Allowed</td>
+                            </tr>
+                          </table>
+                    </div>
+
+                    <div class="games-list-view-row-2">
+                        <button>Join</button>
+                    </div>
+                </div>
+
+            </div>
         </div>
 
     </div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     <div id="sidebar" class="sidebar">
         <div class="sidebar-content">
