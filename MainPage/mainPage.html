@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap"
+        rel="stylesheet">
+    <title>MonopolyUA</title>
+    <link rel="stylesheet" type="text/css" href="mainPage.css">
+</head>
+
+<body>
+
+    <header class="main-header">
+        <div class="header-content-left">
+            <div class="logo"><a href="#">MonopolyUA</a></div>
+        </div>
+        <div class="header-content-mid">
+            <nav>
+                <ul class="nav-list">
+                    <li><a href="#rules" class="scroll-to-rules">Правила</a></li>
+                    <li><a href="../MarketPage/marketPage.html">Маркет</a></li>
+                    <li><a href="../LobbyCreationPage/lobbyCreationPage.html">Створення/Пошук гри</a></li>
+                </ul>
+            </nav>
+        </div>
+        <div class="header-content-right">
+            <a class="burger-btn">☰</a>
+        </div>
+    </header>
+
+    <div class="overlay"></div>
+
+    <div class="sidebar">
+        <div class="sidebar-grid">
+
+            <div class="sidebar-header">
+                <button class="close-btn">&times;</button>
+            </div>
+
+            <div class="sidebar-balance">
+                <a href="../ProfilePage/profilePage.html" class="profile-btn">Профіль</a>
+                <div class="user-info">
+                    💰 Баланс: <span id="user-balance">1500 монет</span>
+                </div>
+            </div>
+
+            <div class="sidebar-notifications">
+                <div class="notifications">
+                    <h3>Сповіщення</h3>
+                    <div class="notifications-list" id="notifications-list">
+                        <div class="notification-item">
+                            <span>Новий подарунок чекає!</span>
+                            <button class="options-btn">⋮</button>
+                            <div class="options-menu">
+                                <button class="mark-read">Позначити як прочитане</button>
+                                <button class="accept">Прийняти</button>
+                            </div>
+                        </div>
+                        <div class="notification-item">
+                            <span>Доданий новий івент!</span>
+                            <button class="options-btn">⋮</button>
+                            <div class="options-menu">
+                                <button class="mark-read">Позначити як прочитане</button>
+                                <button class="accept">Прийняти</button>
+                            </div>
+                        </div>
+                        
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-logout">
+                <button class="logout-btn">Вийти з акаунту</button>
+            </div>
+
+        </div>
+    </div>
+
+
+    <div class="container-info">
+        <div class="slider">
+            <div class="slides">
+                <div class="slide">
+                    <div class="slide-content">
+                        <div class="slide-image">
+                            <img src="../Images/image-removebg-preview (1).png" alt="Фото 1">
+                        </div>
+                        <div class="slide-text">
+                            <h2>Навчіться грати в монополію!</h2>
+                            <p>Освойте монополію швидко та легко разом з нами! Ми пропонуємо детальні правила гри та
+                                зручний відеогайд, який допоможе вам зрозуміти всі нюанси та стратегії. Навіть якщо ви
+                                граєте вперше — наші матеріали зроблять старт простим і зрозумілим!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="slide">
+                    <div class="slide-content">
+                        <div class="slide-image">
+                            <img src="../Images/image-removebg-preview (9).png" alt="Фото 2">
+                        </div>
+                        <div class="slide-text">
+                            <h2>Грайте з друзями!</h2>
+                            <p>Запрошуйте своїх друзів, додавайте їх у свій список контактів та створюйте приватні лобі
+                                для гри в комфортній атмосфері! Влаштовуйте власні турніри, розробляйте спільні
+                                стратегії та насолоджуйтеся грою разом із близькими.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="slide">
+                    <div class="slide-content">
+                        <div class="slide-image">
+                            <img src="../Images/image-removebg-preview (6).png" alt="Фото 3">
+                        </div>
+                        <div class="slide-text">
+                            <h2>Купуйте та продавайте на маркеті!</h2>
+                            <p>Наш маркет відкриває можливість купувати та продавати ексклюзивні скіни, унікальні
+                                кубики, рідкісні картки та кейси за внутрішню валюту гри. Створіть свій стиль і
+                                виділяйтесь серед інших гравців!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="slide">
+                    <div class="slide-content">
+                        <div class="slide-image">
+                            <img src="../Images/image-removebg-preview (4).png" alt="Фото 4">
+                        </div>
+                        <div class="slide-text">
+                            <h2>Отримуйте нагороди!</h2>
+                            <p>Беріть активну участь у рейтингових матчах і заробляйте цінні нагороди за свої успіхи!
+                                Грайте, перемагайте та збирайте унікальні призи, які підкреслять ваш досвід та
+                                досягнення в грі.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="slide">
+                    <div class="slide-content">
+                        <div class="slide-image">
+                            <img src="../Images/image-removebg-preview (8).png" alt="Фото 5">
+                        </div>
+                        <div class="slide-text">
+                            <h2>Дружні та рейтингові ігри!</h2>
+                            <p>Створюйте приватні ігрові кімнати для гри з друзями без ризику для вашого рейтингу.
+                                Дружні ігри дозволяють відточувати майстерність та просто весело проводити час у
+                                компанії без зайвого тиску.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="slide">
+                    <div class="slide-content">
+                        <div class="slide-image">
+                            <img src="../Images/image-removebg-preview (7).png" alt="Фото 6">
+                        </div>
+                        <div class="slide-text">
+                            <h2>Рейтингова система!</h2>
+                            <p>Змагайтеся з іншими гравцями у рейтингових матчах, набирайте бали за перемоги та
+                                потрапляйте до списків найкращих! Піднімайтеся у сезонних турнірних таблицях або
+                                залишайте свій слід у вічному рейтингу найсильніших!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="prev">&#10094;</button>
+            <button class="next">&#10095;</button>
+        </div>
+    </div>
+
+    <div class="container-rules" id="rules">
+
+        <div class="rules-header">
+            <h2>Правила гри у монополію!</h2>
+        </div>
+
+        <div class="rules-grid">
+
+            <div class="rule-item">
+                <h3>Початок гри</h3>
+                <p>Кожен гравець починає з певною сумою ігрової валюти. Мета — збільшити своє багатство через купівлю
+                    нерухомості.</p>
+            </div>
+
+            <div class="rule-item">
+                <h3>Купівля нерухомості</h3>
+                <p>Якщо гравець зупиняється на вільній власності, він може купити її або виставити на аукціон серед
+                    інших гравців.</p>
+            </div>
+
+            <div class="rule-item">
+                <h3>Оплата оренди</h3>
+                <p>Коли гравець потрапляє на чужу власність, він зобов'язаний заплатити орендну плату власнику згідно
+                    правил гри.</p>
+            </div>
+
+            <div class="rule-item">
+                <h3>Будівництво будинків</h3>
+                <p>Власник всіх вулиць одного кольору може будувати будинки, збільшуючи орендну плату для інших гравців.
+                </p>
+            </div>
+
+            <div class="rule-item">
+                <h3>Банкрутство</h3>
+                <p>Якщо гравець не може оплатити борги, він оголошує банкрутство і вибуває з гри, передаючи своє майно
+                    кредиторам.</p>
+            </div>
+
+            <div class="rule-item">
+                <h3>Перемога в грі</h3>
+                <p>Перемагає останній гравець, який залишився з коштами після банкрутства всіх інших суперників!</p>
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="container-video">
+        <div class="split top"></div>
+        <div class="split bottom"></div>
+        <button class="watch-video-btn">Переглянути відеогайд!</button>
+        <div class="video-wrapper">
+            <iframe src="https://www.youtube.com/embed/ТВОЕ_ВИДЕО_ID" frameborder="0" allowfullscreen></iframe>
+        </div>
+        <button class="close-video-btn">&times;</button>
+    </div>
+
+    <div class="container-players">
+        <div class="players-tables">
+            <div class="table-section">
+                <h2>Найкращі гравці сезону №1</h2>
+                <table class="players-table" id="season-table">
+                    <thead>
+                        <tr>
+                            <th>№</th>
+                            <th>Ім'я</th>
+                            <th>Ігор</th>
+                            <th>Перемог</th>
+                            <th>% Перемог</th>
+                            <th>Очки</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                    </tbody>
+                </table>
+                <button class="view-all-btn" id="seasonBestPlayers">Переглянути весь список</button>
+            </div>
+
+            <div class="table-section">
+                <h2>Найкращі гравці за весь час</h2>
+                <table class="players-table" id="alltime-table">
+                    <thead>
+                        <tr>
+                            <th>№</th>
+                            <th>Ім'я</th>
+                            <th>Ігор</th>
+                            <th>Перемог</th>
+                            <th>% Перемог</th>
+                            <th>Очки</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                    </tbody>
+                </table>
+                <button class="view-all-btn" id="allTimePlayers">Переглянути весь список</button>
+            </div>
+        </div>
+    </div>
+
+
+    <footer class="footer">
+        <div class="footer-content">
+            <h2>Зв'яжіться з нами</h2>
+            <p>Email: support@monopoly.ua</p>
+            <p>Телефон: +38 (097) 123-45-67</p>
+            <p>Адреса: Київ, вул. Ігрова, 10</p>
+            <div class="footer-bottom">
+                <p>© 2025 Monopoly Game. Усі права захищено.</p>
+            </div>
+        </div>
+    </footer>
+
+
+    <script src="mainPage.js"></script>
+</body>
+
+</html>

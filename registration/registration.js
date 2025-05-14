@@ -18,9 +18,8 @@ form.addEventListener('submit', function (e) {
   if (isLoginMode) {
     const emailValue = document.getElementById('email').value;
     const passwordValue = document.getElementById('password').value;
-    alert(`Вход с данными: ${emailValue} / ${passwordValue}`);
 
-    fetch('http://127.0.0.1:8000/api/registration/login/', {
+    fetch('http://127.0.0.1:8000/auth/login/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -34,7 +33,7 @@ form.addEventListener('submit', function (e) {
       .then(data => {
         if (data.access) {
           localStorage.setItem('authToken', data.access);
-          alert('Вход успешен');
+          window.location.href = '../MainPage/mainPage.html';
           console.log(data);
         } else {
           alert('Токен не получен');
@@ -52,7 +51,7 @@ form.addEventListener('submit', function (e) {
   const repeatPassword = document.getElementById('repeatPassword').value;
 
   if (password !== repeatPassword) {
-    alert('Пароли не совпадают!');
+    showFieldError("repeatPassword", 'Пароли не совпадают!')
     return;
   }
 
@@ -60,7 +59,7 @@ form.addEventListener('submit', function (e) {
   const genderValue = genderMale.checked ? 'male' : 'female';
   const emailValue = document.getElementById('email').value;
 
-  fetch('http://127.0.0.1:8000/api/registration/register/', {
+  fetch('http://127.0.0.1:8000/auth/register/', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -74,12 +73,22 @@ form.addEventListener('submit', function (e) {
   })
     .then(response => response.json())
     .then(data => {
-      if (data.token) {
-        localStorage.setItem('authToken', data.token);
-        alert('Регистрация прошла успешно!');
+      if (data.access) {
+        localStorage.setItem('authToken', data.access);
+        window.location.href = '../MainPage/mainPage.html';
         form.reset();
         console.log(data);
-      } else {
+      }
+      else if (data.username || data.email) {
+        console.log(data);
+        if (data.username) {
+          showFieldError("nickname", data.username)
+        }
+        if (data.email) {
+          showFieldError("email", data.email)
+        }
+      }
+      else {
         alert('Токен не получен');
       }
     })
@@ -88,7 +97,6 @@ form.addEventListener('submit', function (e) {
       console.error(error);
     });
 });
-
 
 switchModeLink.addEventListener('click', function (e) {
   e.preventDefault();
@@ -129,4 +137,21 @@ function switchToRegistration() {
   nickname.setAttribute('required', 'true');
   genderMale.setAttribute('required', 'true');
   genderFem.setAttribute('required', 'true');
+}
+
+function showFieldError(fieldId, message) {
+  const input = document.getElementById(fieldId);
+  const errorDiv = document.getElementById(fieldId + 'Error');
+
+  if (!input || !errorDiv) return;
+
+  input.classList.add('input-error');
+  errorDiv.textContent = message;
+  errorDiv.style.display = 'block';
+
+  input.addEventListener('input', function clearError() {
+    input.classList.remove('input-error');
+    errorDiv.style.display = 'none';
+    input.removeEventListener('input', clearError);
+  });
 }

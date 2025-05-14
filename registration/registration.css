@@ -186,3 +186,14 @@ body {
     opacity: 1;
   }
 }
+
+.error-message {
+  color: #d32f2f;
+  font-size: 13px;
+  margin-top: 5px;
+  display: none;
+}
+
+.input-error {
+  border-color: #d32f2f !important;
+}

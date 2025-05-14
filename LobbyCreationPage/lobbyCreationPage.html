@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap"
+        rel="stylesheet">
+    <title>MonopolyUA</title>
+    <link rel="stylesheet" type="text/css" href="lobbyCreationPage.css">
+</head>
+
+<body>
+
+    <header class="main-header">
+        <div class="header-content-left">
+            <div class="logo"><a href="../MainPage/mainPage.html">MonopolyUA</a></div>
+        </div>
+        <div class="header-content-mid">
+            <nav>
+                <ul class="nav-list">
+                    <li><a href="../MainPage/mainPage.html #rules" class="scroll-to-rules">Правила</a></li>
+                    <li><a href="../MarketPage/marketPage.html">Маркет</a></li>
+                    <li><a href="#">Створення/Пошук гри</a></li>
+                </ul>
+            </nav>
+        </div>
+        <div class="header-content-right">
+            <a class="burger-btn">☰</a>
+        </div>
+    </header>
+
+    <div class="overlay"></div>
+
+    <div class="sidebar">
+        <div class="sidebar-grid">
+
+            <div class="sidebar-header">
+                <button class="close-btn">&times;</button>
+            </div>
+
+            <div class="sidebar-balance">
+                <a href="../ProfilePage/profilePage.html" class="profile-btn">Профіль</a>
+                <div class="user-info">
+                    💰 Баланс: <span id="user-balance">1500 монет</span>
+                </div>
+            </div>
+
+            <div class="sidebar-notifications">
+                <div class="notifications">
+                    <h3>Сповіщення</h3>
+                    <div class="notifications-list" id="notifications-list">
+                        <div class="notification-item">
+                            <span>Новий подарунок чекає!</span>
+                            <button class="options-btn">⋮</button>
+                            <div class="options-menu">
+                                <button class="mark-read">Позначити як прочитане</button>
+                                <button class="accept">Прийняти</button>
+                            </div>
+                        </div>
+                        <div class="notification-item">
+                            <span>Доданий новий івент!</span>
+                            <button class="options-btn">⋮</button>
+                            <div class="options-menu">
+                                <button class="mark-read">Позначити як прочитане</button>
+                                <button class="accept">Прийняти</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-logout">
+                <button class="logout-btn">Вийти з акаунту</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="game-create">
+
+        <div class="game-create-data">
+
+            <div class="game-create-data-info">
+                <h1>Створення товариської гри</h1>
+            </div>
+
+            <div class="game-create-data-fields">
+
+                <div class="data-row">
+                    <div class="data-row-section1">
+                        <p>Назва лобі:</p>
+                    </div>
+                    <div class="data-row-section2">
+                        <input type="text" class="lobbyname-input" id="lobbyNameInput"
+                            placeholder="Введіть назву для лобі...">
+                    </div>
+                </div>
+
+                <div class="data-row">
+                    <div class="data-row-section1">
+                        <p>Регіон:</p>
+                    </div>
+                    <div class="data-row-section2">
+                        <select class="region-pick" id="regionPick">
+                            <option value="empty">-</option>
+                            <option value="USA">USA</option>
+                            <option value="Europe">Europe</option>
+                            <option value="Asia">Asia</option>
+                            <option value="Africa">Africa</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="data-row">
+                    <div class="data-row-section1">
+                        <p>Кількість гравців:</p>
+                    </div>
+                    <div class="data-row-section2">
+                        <select class="players-amount" id="playersAmount">
+                            <option value="empty">-</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="data-row">
+                    <div class="data-row-section1">
+                        <p>По запрошенням?</p>
+                    </div>
+                    <div class="data-row-section2">
+                        <input type="checkbox" class="closed-lobby" id="closedLobby">
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="game-create-data-btns">
+                <button class="btn-create" id="lobbyCreateBtn">Створити</button>
+            </div>
+
+        </div>
+
+        <div class="game-create-lobby">
+            <div class="game-create-lobby-top">
+                <h1 id="lobbyNameHeader">Ім'я лоббі</h1>
+                <button class="btn-delete" id="lobbyDeleteBtn">X</button>
+            </div>
+            <div class="game-create-lobby-mid">
+
+            </div>
+
+            <div class="game-create-lobby-bot">
+                <button class="start-game">Почати!</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="rating-game">
+        <div class="rating-game-start">
+            <div class="rating-game-start-top">
+                <h1>Рейтингова гра</h1>
+            </div>
+            <div class="rating-game-start-mid">
+                <div class="data-block">
+                    <p>Ваш рейтинг (Позиція): top 999+</p>
+                    <p>Ваші бали: 120</p>
+                    <p>Людей у пошуку: 1млн</p>
+                </div>
+            </div>
+            <div class="rating-game-start-bot">
+                <button class="rate-search" id="startRatingGameSearch">Почати пошук</button>
+            </div>
+        </div>
+        <div class="rating-game-search">
+            <div class="rating-game-search-top">
+                <h1>Пошук лобі</h1>
+                <button class="stop-search" id="stopSearchGame">X</button>
+            </div>
+            <div class="rating-game-search-bot">
+                <span id="searchTimer">00:00</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="lobby-list">
+        <div class="lobby-list-top">
+            <h1>Лобі інших гравців</h1>
+        </div>
+        <div class="lobby-list-bot">
+            <div class="lobbygames-list">
+                <div class="lobby-item">
+                    <div class="lobby-item-top">
+                        <h1>Тестове лобі</h1>
+                    </div>
+                    <div class="lobby-item-bot">
+                        <div class="lobby-item-bot-left">
+                            <div class="joined-players"></div>
+                            <div class="joined-players"></div>
+                            <div class="joined-players"></div>
+                            <div class="joined-players"></div>
+                            <p>1/4</p>
+                        </div>
+                        <div class="lobby-item-bot-right">
+                            <button class="go-game">Розпочати</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="lobbyCreationPage.js"></script>
+</body>
+
+</html>

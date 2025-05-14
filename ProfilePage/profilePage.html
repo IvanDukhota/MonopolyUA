@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap"
+        rel="stylesheet">
+    <title>MonopolyUA</title>
+    <link rel="stylesheet" type="text/css" href="profilePage.css">
+</head>
+
+<body>
+
+    <header class="main-header">
+        <div class="header-content-left">
+            <div class="logo"><a href="../MainPage/mainPage.html">MonopolyUA</a></div>
+        </div>
+        <div class="header-content-mid">
+            <nav>
+                <ul class="nav-list">
+                    <li><a href="../MainPage/mainPage.html #rules" class="scroll-to-rules">Правила</a></li>
+                    <li><a href="../MarketPage/marketPage.html">Маркет</a></li>
+                    <li><a href="../LobbyCreationPage/lobbyCreationPage.html">Створення/Пошук гри</a></li>
+                </ul>
+            </nav>
+        </div>
+        <div class="header-content-right">
+            <a class="burger-btn">☰</a>
+        </div>
+    </header>
+
+    <div class="overlay"></div>
+
+    <div class="sidebar">
+        <div class="sidebar-grid">
+
+            <div class="sidebar-header">
+                <button class="close-btn">&times;</button>
+            </div>
+
+            <div class="sidebar-balance">
+                <a href="../ProfilePage/profilePage.html" class="profile-btn">Профіль</a>
+                <div class="user-info">
+                    💰 Баланс:  <span id="user-balance"></span>
+                </div>
+            </div>
+
+            <div class="sidebar-notifications">
+                <div class="notifications">
+                    <h3>Сповіщення</h3>
+                    <div class="notifications-list" id="notifications-list">
+                        <div class="notification-item">
+                            <span>Новий подарунок чекає!</span>
+                            <button class="options-btn">⋮</button>
+                            <div class="options-menu">
+                                <button class="mark-read">Позначити як прочитане</button>
+                                <button class="accept">Прийняти</button>
+                            </div>
+                        </div>
+                        <div class="notification-item">
+                            <span>Доданий новий івент!</span>
+                            <button class="options-btn">⋮</button>
+                            <div class="options-menu">
+                                <button class="mark-read">Позначити як прочитане</button>
+                                <button class="accept">Прийняти</button>
+                            </div>
+                        </div>
+                        
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-logout">
+                <button class="logout-btn">Вийти з акаунту</button>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="container-profile">
+
+        <div class="container-settings">
+
+            <div class="container-settings-1">
+                <h1>Ваш профіль</h1>
+            </div>
+
+            <div class="container-settings-2">
+                <img id="avatar"   class="profile-picture">
+                <input type="file" id="uploadInput" style="display: none;" accept="image/*">
+                <button id="changePictureBtn" class="change-picture">Змінити фото</button>
+            </div>
+
+            <div class="container-settings-3">
+                <input id="nameInput" type="text" class="profile-input" placeholder="Ім'я" disabled>
+                <input id="regionInput" type="text" class="profile-input" placeholder="Регіон" disabled>
+                <input id="passInput" type="password" class="profile-input" style="opacity: 0;" placeholder="Пароль">
+                <input id="repeatPassInput" type="password" class="profile-input" style="opacity: 0;" placeholder="Повторіть пароль">
+            </div>
+
+            <div class="container-settings-4">
+                <button id="cancelChange" class="edit-btn" style="opacity: 0;">Відмінити</button>
+                <button id="acceptChange" class="edit-btn">Редагувати</button>
+            </div>
+
+        </div>
+
+        <div class="container-data">
+
+            <div class="player-stats">
+                <div class="player-stats-top">
+                    <h1>Ваша статистика</h1>
+                </div>
+                <div class="player-stats-bot">
+                    <div class="stat-card">
+                        <h3>Ігор</h3>
+                        <p id="stat-games">–</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Перемог</h3>
+                        <p id="stat-wins">–</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Поразок</h3>
+                        <p id="stat-loses">–</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Відсоток перемог</h3>
+                        <p id="stat-percentage">–</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Балів</h3>
+                        <p id="stat-points">–</p>
+                    </div>
+                </div>
+            </div>
+            
+
+            <div class="friends-list">
+                <div class="friends-list-top">
+                    <h1>Ваші друзі</h1>
+                </div>
+                <div class="friends-list-mid"></div>
+                <div class="friends-list-bot"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="player-inventory">
+        <div class="player-inventory-header">
+            <div class="player-inventory-header-left">
+                <h1>Ваш інвентар</h1>
+            </div>
+            <div class="player-inventory-header-right">
+                <button class="type-buttons active" id="cubesBtn">Куби</button>
+                <button class="type-buttons" id="cardsBtn">Карти</button>
+                <button class="type-buttons" id="casesBtn">Кейси</button>
+            </div>
+        </div>
+        <div class="player-inventory-data"></div>
+    </div>
+
+
+    <script src="profilePage.js"></script>
+    <script src="/sidebar.js"></script>
+</body>
+
+</html>

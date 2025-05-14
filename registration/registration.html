@@ -24,8 +24,9 @@
 
         <div id="nicknameBlock">
           <input type="text" id="nickname" name="nickname" placeholder="Nickname" required />
+          <div class="error-message" id="nicknameError"></div>
         </div>
-      
+
         <div id="genderBlock" class="gender-block">
           <span>Gender:</span>
           <label>
@@ -39,13 +40,15 @@
         </div>
 
         <input type="email" id="email" name="email" placeholder="Email" required />
-      
+        <div class="error-message" id="emailError"></div>
+
       </div>
 
       <input type="password" id="password" name="password" placeholder="Password" required />
+      <div class="error-message" id="passwordError"></div>
 
       <input type="password" id="repeatPassword" name="repeatPassword" placeholder="Repeat password" required />
-
+      <div class="error-message" id="repeatPasswordError"></div>
 
       <button type="submit" class="btn-register" id="submitBtn">Registration</button>
     </form>

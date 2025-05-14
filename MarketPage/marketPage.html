@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap"
+        rel="stylesheet">
+    <title>MonopolyUA</title>
+    <link rel="stylesheet" type="text/css" href="marketPage.css">
+</head>
+
+<body>
+
+    <header class="main-header">
+        <div class="header-content-left">
+            <div class="logo"><a href="../MainPage/mainPage.html">MonopolyUA</a></div>
+        </div>
+        <div class="header-content-mid">
+            <nav>
+                <ul class="nav-list">
+                    <li><a href="../MainPage/mainPage.html #rules" class="scroll-to-rules">Правила</a></li>
+                    <li><a href="marketPage.html">Маркет</a></li>
+                    <li><a href="../LobbyCreationPage/lobbyCreationPage.html">Створення/Пошук гри</a></li>
+                </ul>
+            </nav>
+        </div>
+        <div class="header-content-right">
+            <a class="burger-btn">☰</a>
+        </div>
+    </header>
+
+    <div class="overlay"></div>
+
+    <div class="sidebar">
+        <div class="sidebar-grid">
+
+            <div class="sidebar-header">
+                <button class="close-btn">&times;</button>
+            </div>
+
+            <div class="sidebar-balance">
+                <a href="../ProfilePage/profilePage.html" class="profile-btn">Профіль</a>
+                <div class="user-info">
+                    💰 Баланс: <span id="user-balance">1500 монет</span>
+                </div>
+            </div>
+
+            <div class="sidebar-notifications">
+                <div class="notifications">
+                    <h3>Сповіщення</h3>
+                    <div class="notifications-list" id="notifications-list">
+                        <div class="notification-item">
+                            <span>Новий подарунок чекає!</span>
+                            <button class="options-btn">⋮</button>
+                            <div class="options-menu">
+                                <button class="mark-read">Позначити як прочитане</button>
+                                <button class="accept">Прийняти</button>
+                            </div>
+                        </div>
+                        <div class="notification-item">
+                            <span>Доданий новий івент!</span>
+                            <button class="options-btn">⋮</button>
+                            <div class="options-menu">
+                                <button class="mark-read">Позначити як прочитане</button>
+                                <button class="accept">Прийняти</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-logout">
+                <button class="logout-btn">Вийти з акаунту</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="item-display">
+        <div class="item-display-top">
+            <h1>Маркет</h1>
+        </div>
+        <div class="item-display-mid"></div>
+        <div class="item-display-bot"></div>
+    </div>
+    
+    <div class="filter-display">
+        <div class="filter-display-info">
+            <h1>Фільтри</h1>
+        </div>
+        <div class="search-name">
+            <p>Пошук за ім'ям:</p>
+            <input type="text" class="input-name" id="search-name" placeholder="Введіть ім'я предмету...">
+        </div>
+        <div class="search-type">
+            <div class="data-row">
+                <p>Пошук за типом:</p>
+            </div>
+            <div class="btn-row">
+                <button class="type-btn" data-type="cube">Куби</button>
+                <button class="type-btn" data-type="card">Карти</button>
+                <button class="type-btn" data-type="case">Кейси</button>
+            </div>
+        </div>
+        <div class="search-price">
+            <div class="data-row">
+                <p>Пошук за ціною:</p>
+            </div>
+            <div class="btn-row">
+                <input type="text" class="price-input" id="price-from" placeholder="Від...">
+                <input type="text" class="price-input" id="price-to" placeholder="До...">
+            </div>
+        </div>
+        <div class="search-rarity">
+            <div class="data-row">
+                <p>Пошук за рідкістю:</p>
+            </div>
+            <div class="btn-row">
+                <select class="rarity-select" id="rarity-select">
+                    <option value="all">Всі</option>
+                    <option value="common">Звичайна</option>
+                    <option value="rare">Рідкі</option>
+                    <option value="epic">Епічні</option>
+                    <option value="legendary">Легендарні</option>
+                </select>
+            </div>
+        </div>
+        <div class="search-amount">
+            <div class="data-row">
+                <p>Пошук за кількістю:</p>
+            </div>
+            <div class="btn-row">
+                <input type="text" class="amount-input" id="amount" placeholder="Введіть кількість...">
+            </div>
+        </div>
+    </div>
+    
+    <script src="marketPage.js"></script>
+</body>
+
+</html>
