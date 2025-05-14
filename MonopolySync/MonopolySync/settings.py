@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
+    'social_django',
 ]
 
 
@@ -90,7 +91,11 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'social_django.middleware.SocialAuthExceptionMiddleware',
+
 ]
+
+
 
 ROOT_URLCONF = 'MonopolySync.urls'
 
@@ -159,6 +164,11 @@ USE_I18N = True
 
 USE_TZ = True
 
+
+
+REDIRECT_URI = 'http://127.0.0.1:8000/auth/google/callback/'
+
+CLIENT_URI = 'http://localhost:3000'
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/

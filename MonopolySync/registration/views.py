@@ -6,6 +6,10 @@ from django.contrib.auth import get_user_model
 from .serializers import UserSerializer, LoginSerializer
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.conf import settings
+import requests
+from django.shortcuts import redirect
+
 
 
 User = get_user_model()
@@ -47,3 +51,58 @@ class LoginView(APIView):
             }, status=status.HTTP_200_OK)
 
         return Response({"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GoogleLoginRedirectView(APIView):
+    def get(self, request):
+        client_id = settings.CLIENT_ID
+        redirect_uri = settings.REDIRECT_URI
+        scope = 'openid email profile'
+        response_type = 'code'
+
+        auth_url = (
+            f"https://accounts.google.com/o/oauth2/v2/auth"
+            f"?client_id={client_id}"
+            f"&redirect_uri={redirect_uri}"
+            f"&response_type={response_type}"
+            f"&scope={scope}"
+        )
+        return redirect(auth_url)
+
+
+class GoogleCallbackView(APIView):
+    def get(self, request):
+        code = request.GET.get('code')
+        if not code:
+            return Response({'error': 'No code provided'}, status=400)
+
+        token_url = "https://oauth2.googleapis.com/token"
+        data = {
+            'code': code,
+            'client_id': settings.CLIENT_ID,
+            'client_secret': settings.CLIENT_SECRET,
+            'redirect_uri': settings.REDIRECT_URI,
+            'grant_type': 'authorization_code'
+        }
+
+        token_res = requests.post(token_url, data=data)
+        if token_res.status_code != 200:
+            return Response({'error': 'Failed to get token'}, status=400)
+
+        tokens = token_res.json()
+        id_token = tokens.get('id_token')
+
+        user_info = requests.get(f"https://oauth2.googleapis.com/tokeninfo?id_token={id_token}").json()
+        print(user_info)
+        email = user_info.get('email')
+        name = user_info.get('name')
+
+        if not email:
+            return Response({'error': 'Email not found'}, status=400)
+
+        user, _ = User.objects.get_or_create(email=email, defaults={'username': name})
+        refresh = RefreshToken.for_user(user)
+
+        redirect_url = f"{settings.CLIENT_URI}/google-success.html?access={refresh.access_token}&refresh={refresh}"
+        return redirect(redirect_url)
+
