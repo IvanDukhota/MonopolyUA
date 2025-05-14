@@ -14,11 +14,4 @@ class Friend(models.Model):
         return f"{self.user1} and {self.user2} on date {self.date}"
 
 
-class FriendRequest(models.Model):
-    from_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='friend_requests_from')
-    to_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='friend_requests_to')
-    date = models.DateTimeField(auto_now=True)
-    is_accepted = models.BooleanField(default=False)
 
-    def __str__(self):
-        return f"Request from {self.from_user} to {self.to_user} status {self.is_accepted}"
