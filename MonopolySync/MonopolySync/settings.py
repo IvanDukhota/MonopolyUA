@@ -124,7 +124,7 @@ WSGI_APPLICATION = 'MonopolySync.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'MonopolyDB',
+        'NAME': 'MonopolyUA',
         'USER': 'postgres',
         'PASSWORD': '12345678',
         'HOST': 'localhost',

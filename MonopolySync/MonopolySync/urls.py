@@ -24,5 +24,7 @@ urlpatterns = [
     path('auth/', include('registration.urls')),
     path('profile/', include('user_profile.urls')),
     path('friends/', include('friends.urls')),
-    path('notifications/', include('notifications.urls'))
+    path('notifications/', include('notifications.urls')),
+    path('statistic/',include('gamedata.urls')),
+    path('market/', include('items.urls'))
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
