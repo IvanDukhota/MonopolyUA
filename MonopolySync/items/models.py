@@ -27,12 +27,25 @@ class Item(models.Model):
     rarity = models.CharField(max_length=15, choices=RARITY_CHOICES, null=True, blank=True)
     image = models.ImageField(upload_to="items/", null=True, blank=True)
     category = models.CharField(max_length=10, choices=CATEGORY_CHOICES)
-    case_items = models.ManyToManyField('self', blank=True, symmetrical=False, related_name='contained_in_cases')
 
     def __str__(self):
         return f"{self.name} ({self.category})"
 
 
+class CaseItemContent(models.Model):
+    case = models.ForeignKey(
+        Item,
+        on_delete=models.CASCADE,
+        related_name='case_contents',
+        limit_choices_to={'category': Item.CATEGORY_CASE}
+    )
+    item = models.ForeignKey(
+        Item,
+        on_delete=models.CASCADE,
+        related_name='contained_in_cases_contents'
+    )
+    def __str__(self):
+        return f"{self.item.name} in case {self.case.name}"
 
 class MarketListing(models.Model):
     seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='market_listings')
@@ -50,5 +63,7 @@ class InventoryItem(models.Model):
     quantity = models.PositiveIntegerField(null=False)
     def __str__(self):
         return f"{self.user.username} - {self.item.name}"
+
+
 
 

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import MarketListing, Item
+from .models import MarketListing, Item, InventoryItem
 
 class MarketListingSerializer(serializers.ModelSerializer):
     seller_username = serializers.CharField(source='seller.username', read_only=True)
@@ -15,10 +15,23 @@ class MarketListingSerializer(serializers.ModelSerializer):
             return obj.seller == request.user
         return False
 
+class UserListingSerializer(serializers.ModelSerializer):
+    item_name = serializers.CharField(source='item.name', read_only=True)
+    image = serializers.ImageField(source='item.image', read_only=True)
+    class Meta:
+        model = MarketListing
+        fields = '__all__'
+
+    def get_image(self, obj):
+        if obj.image:
+            request = self.context.get('request')
+            return request.build_absolute_uri(obj.image.url) if request else obj.image.url
+        return None
+
+
 
 class ItemSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
-    case_items = serializers.SerializerMethodField()
     market_listings = serializers.SerializerMethodField()
     min_price = serializers.SerializerMethodField()
     amount = serializers.SerializerMethodField()
@@ -27,7 +40,7 @@ class ItemSerializer(serializers.ModelSerializer):
         model = Item
         fields = [
             'id', 'name', 'category', 'price', 'rarity', 'image',
-            'case_items', 'market_listings', 'min_price', 'amount'
+            'market_listings', 'min_price', 'amount'
         ]
 
     def get_image(self, obj):
@@ -36,11 +49,6 @@ class ItemSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(obj.image.url) if request else obj.image.url
         return None
 
-    def get_case_items(self, obj):
-        if obj.category == 'case':
-            items = obj.case_items.all()
-            return ItemSerializer(items, many=True, context=self.context).data
-        return None
 
     def get_market_listings(self, obj):
         listings = MarketListing.objects.filter(item=obj)
@@ -53,3 +61,11 @@ class ItemSerializer(serializers.ModelSerializer):
 
     def get_amount(self, obj):
         return MarketListing.objects.filter(item=obj).count()
+
+
+class InventoryItemSerializer(serializers.ModelSerializer):
+    item = ItemSerializer()
+
+    class Meta:
+        model = InventoryItem
+        fields = ['id', 'item', 'quantity']
