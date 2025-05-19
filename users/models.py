@@ -29,7 +29,9 @@ class User(AbstractUser):
         ('female', 'Female'),
     ]
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=True, blank=True)
-
+    region = models.CharField(max_length=30,null=True)
+    game_currency = models.PositiveIntegerField(default=0)
+    
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
 

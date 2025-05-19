@@ -43,7 +43,7 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=40),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
@@ -61,11 +61,17 @@ INSTALLED_APPS = [
 
     "game",
     "users",
+    "friends",
+    "gamedata",
+    "items",
+    "user_profile",
+    "lobby",
 
     # Channels (WebSockets)
     "channels",
     'rest_framework',
     'corsheaders',
+    'django_extensions',
     
     'drf_spectacular',
     'drf_spectacular_sidecar',
@@ -138,6 +144,15 @@ CHANNEL_LAYERS = {
         },
     },
 }
+
+REDIS = {
+    "HOST": "127.0.0.1",
+    "PORT": 6379,
+    "DB": 2,
+    "PASSWORD": None,
+}
+
+
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
