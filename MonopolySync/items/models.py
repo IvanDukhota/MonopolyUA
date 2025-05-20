@@ -27,6 +27,7 @@ class Item(models.Model):
     rarity = models.CharField(max_length=15, choices=RARITY_CHOICES, null=True, blank=True)
     image = models.ImageField(upload_to="items/", null=True, blank=True)
     category = models.CharField(max_length=10, choices=CATEGORY_CHOICES)
+    is_default = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.name} ({self.category})"

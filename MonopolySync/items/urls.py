@@ -11,5 +11,6 @@ urlpatterns = [
     path('user-sell/delete/<int:listing_id>', UserSellListView.as_view()),
     path('user-inventory/', InventoryView.as_view()),
     path('item/sell/', SellItemView.as_view()),
-    path('open-case/', OpenCaseAPIView.as_view())
+    path('open-case/', OpenCaseAPIView.as_view()),
+    path('default-board/', DefaultBoardAPIView.as_view())
 ]

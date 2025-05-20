@@ -275,3 +275,51 @@ class OpenCaseAPIView(APIView):
 
         serializer = ItemSerializer(selected_item)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+
+index_list = [1, 3, 6, 8, 9, 11, 13, 14, 16, 18, 19, 21, 23, 24, 26, 27, 29, 31, 32, 34, 37, 39]
+card_list = [
+    (162, 163), (162, 163), (162, 163), (107, 108), (109, 110),
+    (111, 112), (113, 114), (115, 116), (117, 118), (119, 120),
+    (121, 122), (123, 124), (162, 163), (127, 128), (129, 130),
+    (131, 132), (133, 134), (135, 136), (137, 138), (139, 140),
+    (141, 142), (162, 163)
+]
+
+class DefaultBoardAPIView(APIView):
+    def get(self, request):
+        default_cards = list(Item.objects.filter(category=Item.CATEGORY_CARD, is_default=True))
+        if len(default_cards) < 40:
+            raise ValueError("Not enough default cards")
+
+        selected_defaults = random.sample(default_cards, 40)
+        board = []
+
+        for index in range(40):
+            cell_number = index + 1
+            default_card = selected_defaults[index]
+            options = [default_card]
+
+            if cell_number in index_list:
+                pos = index_list.index(cell_number)
+                skin_ids = card_list[pos]
+                skins = list(Item.objects.filter(id__in=skin_ids, is_default=False))
+                options.extend(skins)
+
+            cell_data = {
+                'cell': cell_number,
+                'options': [
+                    {
+                        'id': card.id,
+                        'name': card.name,
+                        'rarity': card.rarity,
+                        'image': request.build_absolute_uri(card.image.url) if card.image else None,
+                    } for card in options
+                ]
+            }
+
+            board.append(cell_data)
+
+        return Response({'board': board})
