@@ -8,6 +8,7 @@ from .redis_client import (
     new_lobby_id, create_lobby, remove_lobby,
     join_lobby, leave_lobby,
     remove_player_from_lobby,
+    start_lobby
 )
 from .serializers import LobbyCreateSerializer, LobbyJoinSerializer
 
@@ -83,5 +84,19 @@ class LobbyRemoveParticipantAPI(APIView):
         remove_player_from_lobby(str(lobby_id), str(user_id))
         return Response(status=status.HTTP_204_NO_CONTENT)
     
+class LobbyStartAPI(APIView):
+    permission_classes = [permissions.IsAuthenticated]
 
+    def post(self, request, lobby_id):
+        meta = get_lobby_meta(str(lobby_id))
+        if not meta:
+            return Response({'detail': 'Lobby not found.'},
+                            status=status.HTTP_404_NOT_FOUND)
+        if str(request.user.id) != meta['creator']:
+            return Response({'detail': 'Only creator can start the game.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        start_lobby(str(lobby_id))
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
     
