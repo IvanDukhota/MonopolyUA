@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     "items",
     "user_profile",
     "lobby",
+    'notifications',
 
     # Channels (WebSockets)
     "channels",

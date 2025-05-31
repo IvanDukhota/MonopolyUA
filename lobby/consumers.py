@@ -9,10 +9,9 @@ class LobbyConsumer(AsyncWebsocketConsumer):
         self.userId = self.scope.get("user_id")
         await self.channel_layer.group_add("lobbies", self.channel_name)
         await self.accept()
-        # отправляем начальные данные
+
         await self.send(json.dumps({"type": "init", "lobbies": list_lobbies()}))
 
-        # подписываемся на Pub/Sub
         self.pubsub = client.pubsub(ignore_subscribe_messages=True)
         self.pubsub.subscribe("lobbies:updates")
         self.listen_task = asyncio.create_task(self.listen_pubsub())

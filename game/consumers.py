@@ -1,5 +1,6 @@
 import json
 import asyncio
+import random
 from channels.generic.websocket import AsyncWebsocketConsumer
 from .redis_client import (
     client,
@@ -10,8 +11,25 @@ from .redis_client import (
     buy_property,
     get_next_turn_and_log,
     pay_rent,
-    process_utility_payment
+    process_utility_payment,
+    advance_turn
 )
+
+MOVE_CARDS = [
+    {
+        "code": "get_out_of_jail",
+        "title": "Карточка «Освобождение из тюрьмы»",
+        "description": "При попадании в тюрьму вы сразу же освобождаетесь."
+    },
+]
+
+MONEY_CARDS = [
+    {
+        "code": "birthday_bonus",
+        "title": "День рождения",
+        "description": "Банк выплачивает вам $1000 в подарок."
+    },
+]
 
 
 class GameConsumer(AsyncWebsocketConsumer):
@@ -94,6 +112,65 @@ class GameConsumer(AsyncWebsocketConsumer):
             msg = json.loads(text_data)
 
             if msg.get("type") == "make_move":
+                player_key = f"game:{self.session_id}:player:{self.user_id}"
+                pdata = client.hgetall(player_key)
+                in_jail = int(pdata.get("in_jail", 0))
+                jail_left = int(pdata.get("jail_turns_left", 0))
+
+                if in_jail and jail_left > 0:
+                    username = pdata.get("username") or str(self.user_id)
+                    new_left = jail_left - 1
+                    
+                    if new_left > 1:
+                        client.hset(player_key, "jail_turns_left", new_left)
+                        log_text = (
+                            f"{username} пропускает ход, так как находится в тюрьме, "
+                            f"осталось пропустить {new_left} ход(ов)."
+                        )
+                        msg_text = (
+                            f"Вы пропускает ход, так как находится в тюрьме, "
+                            f"осталось пропустить {new_left} ход(ов)."
+                        )
+
+                    else:
+                        client.hset(player_key, mapping={
+                            "jail_turns_left": 0,
+                            "in_jail": 0,
+                        })
+                        log_text = (
+                            f"{username} пропускает ход, так как находится в тюрьме, "
+                            "но выходит и в следующий раз сможет ходить."
+                        )
+                        msg_text = (
+                            f"Вы пропускает ход, так как находится в тюрьме, "
+                            "но выходите и в следующий раз сможете ходить."
+                        )
+
+                    log = create_game_log(self.session_id, log_text)
+
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "game_log", "message": log["message"]},
+                    )
+
+                    await self.channel_layer.group_send(
+                        f"user_{self.user_id}",
+                        {"type": "message", "message": msg_text},
+                    )
+
+                    advance_turn(self.session_id)
+                    info = get_next_turn_and_log(self.session_id)
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "game_log", "message": info["log"]["message"]},
+                    )
+                    await self.channel_layer.group_send(
+                        f"user_{info['next_turn']}",
+                        {"type": "your_turn"},
+                    )
+                    return
+
+
                 die1, die2 = msg["move"]["dice"]
                 try:
                     result = process_player_move(
@@ -130,9 +207,9 @@ class GameConsumer(AsyncWebsocketConsumer):
 
                 prop = client.hgetall(prop_key)
                 ptype = prop.get("type")
-                owner_id = prop.get("owner")
 
                 if ptype in ("company", "automaker", "utility"):
+                    owner_id = prop.get("owner")
 
                     if owner_id and owner_id != result["user_id"]:
                         amount = 0
@@ -220,10 +297,168 @@ class GameConsumer(AsyncWebsocketConsumer):
                         )
 
                     elif owner_id and owner_id == result["user_id"]:
-                        xxx
+                        info = get_next_turn_and_log(self.session_id)
+                        await self.channel_layer.group_send(
+                            self.group_name,
+                            {
+                                "type": "game_log",
+                                "message": info["log"]["message"],
+                            },
+                        )
+                        await self.channel_layer.group_send(
+                            f"user_{info['next_turn']}",
+                            {"type": "your_turn"},
+                        )
+
+                elif ptype == "action":
+                    action_type = prop.get("action_type")
+                    player_key = f"game:{self.session_id}:player:{self.user_id}"
+                    username = client.hget(player_key, "username") or str(self.user_id)
+
+                    if action_type == "move":
+                        card = random.choice(MOVE_CARDS)
+                    elif action_type == "money":
+                        card = random.choice(MONEY_CARDS)
+                    else:
+                        return
+
+                    log_text = f"{username} вытянул «{card['title']}»: {card['description']}"
+                    log_entry = create_game_log(self.session_id, log_text)
+
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "game_log", "message": log_entry["message"]},
+                    )
+
+                    await self.channel_layer.group_send(
+                        f"user_{self.user_id}",
+                        {"type": "message", "message": card["description"]},
+                    )
+
+                    if card["code"] == "get_out_of_jail":
+                        client.hset(player_key, "immune_to_jail", 1)
+
+                    elif card["code"] == "birthday_bonus":
+                        client.hincrby(player_key, "balance", 1000)
+                        new_balance = int(client.hget(player_key, "balance"))
+                        await self.channel_layer.group_send(
+                            self.group_name,
+                            {
+                                "type": "game_balance_update",
+                                "balances": { str(self.user_id): new_balance },
+                            },
+                        )
+                    
+                    info = get_next_turn_and_log(self.session_id)
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "game_log", "message": info["log"]["message"]},
+                    )
+                    await self.channel_layer.group_send(
+                        f"user_{info['next_turn']}",
+                        {"type": "your_turn"},
+                    )
+
+                    return
 
                 elif ptype == "side":
-                    print("side")
+                    cell_name = prop.get("name", "")
+                    player_key = f"game:{self.session_id}:player:{self.user_id}"
+                    username = client.hget(player_key, "username") or self.user_id
+
+                    if cell_name in ("Start", "Prison/Pass", "Casino"):
+                        info = get_next_turn_and_log(self.session_id)
+                        await self.channel_layer.group_send(
+                            self.group_name,
+                            {
+                                "type": "game_log",
+                                "message": info["log"]["message"],
+                            },
+                        )
+                        await self.channel_layer.group_send(
+                            f"user_{info['next_turn']}",
+                            {"type": "your_turn"},
+                        )
+                    
+                    elif cell_name == "GoToPrison":
+                        immune = int(client.hget(player_key, "immune_to_jail") or 0)
+
+                        async def delayed_prison_actions():
+                            await asyncio.sleep(2)
+
+                            await self.channel_layer.group_send(
+                                self.group_name,
+                                {
+                                    "type": "game_move",
+                                    "data": {
+                                        "user_id": str(self.user_id),
+                                        "from": result["to"],
+                                        "to": 10,
+                                        "color": result["color"],
+                                    },
+                                },
+                            )
+                            client.hset(
+                                player_key, 
+                                mapping={
+                                    "position": 10,
+                                }
+                            )
+
+                            if immune:
+                                client.hset(player_key, "immune_to_jail", 0)
+                                msg_all = (
+                                    f"{username} попал на GoToPrison, "
+                                    "но использовал карту «Выход из тюрьмы» и сразу же освободился."
+                                )
+
+                                log_entry = create_game_log(self.session_id, msg_all)
+                                await self.channel_layer.group_send(
+                                    self.group_name,
+                                    {"type": "game_log", "message": log_entry["message"]},
+                                )
+
+                                msg_self = (
+                                    "Вы попали на клетку «GoToPrison», "
+                                    "но благодаря карте «Выход из тюрьмы» сразу же свободны."
+                                )
+                                await self.channel_layer.group_send(
+                                    f"user_{self.user_id}",
+                                    {"type": "message", "message": msg_self},
+                                )
+
+                            else:
+                                client.hset(player_key, mapping={
+                                    "in_jail": 1,
+                                    "jail_turns_left": 3,
+                                })
+
+                                msg_all = f"{username} отправлен в тюрьму и пропустит 3 хода."
+
+                                log_entry = create_game_log(self.session_id, msg_all)
+                                await self.channel_layer.group_send(
+                                    self.group_name,
+                                    {"type": "game_log", "message": log_entry["message"]},
+                                )
+
+                                msg_self = "Вы попали на клетку «GoToPrison» и отправлены в тюрьму! Вам предстоит пропустить 3 хода."
+                                await self.channel_layer.group_send(
+                                    f"user_{self.user_id}",
+                                    {"type": "message", "message": msg_self},
+                                )
+
+                            info = get_next_turn_and_log(self.session_id)
+                            await self.channel_layer.group_send(
+                                self.group_name,
+                                {"type": "game_log", "message": info["log"]["message"]},
+                            )
+                            await self.channel_layer.group_send(
+                                f"user_{info['next_turn']}",
+                                {"type": "your_turn"},
+                            )
+
+                        asyncio.create_task(delayed_prison_actions())
+                        return
 
             elif msg.get("type") == "confirm_buy":
                 property_id = msg.get("property_id")
@@ -420,4 +655,10 @@ class GameConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             "type": "balance_update",
             "balances": event["balances"],
+        }))
+    
+    async def message(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "message",
+            "message": event.get("message", "")
         }))

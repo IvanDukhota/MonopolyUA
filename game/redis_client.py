@@ -80,10 +80,7 @@ def process_player_move(session_id: str, user_id: str, die1: int, die2: int) -> 
         player_key, mapping={"position": new_pos, "last_roll": json.dumps([die1, die2])}
     )
 
-    turn_order = json.loads(client.hget(meta_key, "turn_order"))
-    idx = turn_order.index(str(user_id))
-    next_turn = turn_order[(idx + 1) % len(turn_order)]
-    client.hset(meta_key, "current_turn", next_turn)
+    advance_turn(session_id)
 
     username = client.hget(player_key, "username") or user_id
     color = client.hget(player_key, "color")
@@ -172,7 +169,10 @@ def pay_rent(session_id: str, payer_id: str, owner_id: str, amount: int) -> dict
         "log": log_entry,
     }
 
-def process_utility_payment(session_id: str, payer_id: str, owner_id: str, amount: int, sum:int, multiplie:int) -> dict:
+
+def process_utility_payment(
+    session_id: str, payer_id: str, owner_id: str, amount: int, sum: int, multiplie: int
+) -> dict:
     payer_key = f"game:{session_id}:player:{payer_id}"
     owner_key = f"game:{session_id}:player:{owner_id}"
 
@@ -190,15 +190,31 @@ def process_utility_payment(session_id: str, payer_id: str, owner_id: str, amoun
 
     payer_name = client.hget(payer_key, "username") or payer_id
     owner_name = client.hget(owner_key, "username") or owner_id
-    message = (
-        f"{payer_name} заплатил аренду ({sum}×{multiplie}) {amount}$ игроку {owner_name}."
-    )
+    message = f"{payer_name} заплатил аренду ({sum}×{multiplie}) {amount}$ игроку {owner_name}."
     log_entry = create_game_log(session_id, message)
 
     return {
         "balances": balances,
         "log": log_entry,
     }
+
+def advance_turn(session_id: str) -> str:
+    meta_key = f"game:{session_id}:meta"
+
+    turn_order = json.loads(client.hget(meta_key, "turn_order") or "[]")
+    if not turn_order:
+        raise ValueError("Turn order is empty")
+
+    current = client.hget(meta_key, "current_turn")
+    if current is None or current not in turn_order:
+        raise ValueError(f"Current turn '{current}' is not in turn_order")
+
+    idx = turn_order.index(current)
+    next_idx = (idx + 1) % len(turn_order)
+    next_turn = turn_order[next_idx]
+
+    client.hset(meta_key, "current_turn", next_turn)
+    return next_turn
 
 
 def get_next_turn_and_log(session_id: str) -> dict:

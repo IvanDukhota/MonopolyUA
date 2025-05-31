@@ -5,8 +5,6 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
-# Ключи
-
 
 def lobby_meta_key(lobby_id: str) -> str:
     return f"lobby:{lobby_id}:meta"
@@ -21,7 +19,6 @@ def get_player_list(lobby_id):
     return players
 
 
-# Список доступных лобби
 def list_lobbies() -> list[dict]:
     ids = client.smembers("lobbies:available")
     lobbies = []
@@ -45,8 +42,6 @@ def list_lobbies() -> list[dict]:
     return lobbies
 
 
-# Метаданные одного лобби
-
 
 def get_lobby_meta(lobby_id: str) -> dict:
     meta = client.hgetall(lobby_meta_key(lobby_id))
@@ -65,8 +60,6 @@ def get_lobby_meta(lobby_id: str) -> dict:
         "players": get_player_list(lobby_id),
     }
 
-
-# Создание/удаление лобби
 
 
 def new_lobby_id() -> str:
@@ -108,9 +101,6 @@ def remove_lobby(lobby_id: str) -> None:
         "lobbies:updates",
         json.dumps({"action": "remove", "id": lobby_id, "players": players}),
     )
-
-
-# Присоединение/отсоединение игроков
 
 
 def join_lobby(lobby_id: str, user_id: str) -> int:
@@ -498,6 +488,7 @@ def start_lobby(lobby_id: str) -> str:
                     {"amount": 0, "interest_rate": 0, "turns_left": 0}
                 ),
                 "skip_turns": 0,
+                "immune_to_jail": 0,
                 "last_roll": json.dumps([0, 0]),
                 "color": color,
                 "username": username,
@@ -506,12 +497,25 @@ def start_lobby(lobby_id: str) -> str:
         )
 
     # 5. Ініціалізуємо кожну клітинку як хеш з PROPERTY_DATA
+    SPECIAL_SKINS = {
+        "question": {"2", "7", "17", "22", "33", "38"},
+        "dollar":   {"4", "36"},
+    }
+    
     for pid, data in PROPERTY_DATA.items():
         key = f"game:{session_id}:property:{pid}"
+
+        if pid in SPECIAL_SKINS["question"]:
+            skin_path = "media/items/card_question.png"
+        elif pid in SPECIAL_SKINS["dollar"]:
+            skin_path = "media/items/card_dollar.png"
+        else:
+            skin_path = f"media/items/card_{pid}.png"
 
         mapping = {
             "type": data["type"],
             "owner": "",
+            "skin_path": skin_path,
         }
 
         if data["type"] == "company":
@@ -526,7 +530,7 @@ def start_lobby(lobby_id: str) -> str:
                     "houses": 0,
                     "mortgaged": 0,
                     "mortgage_turns_left": 0,
-                    "skins": 0,
+                    "skin_id": 0,
                 }
             )
 
