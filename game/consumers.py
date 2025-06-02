@@ -12,7 +12,11 @@ from .redis_client import (
     get_next_turn_and_log,
     pay_rent,
     process_utility_payment,
-    advance_turn
+    advance_turn,
+    build_house,
+    sell_house,
+    mortgage_property,
+    redeem_property
 )
 
 MOVE_CARDS = [
@@ -212,6 +216,35 @@ class GameConsumer(AsyncWebsocketConsumer):
                     owner_id = prop.get("owner")
 
                     if owner_id and owner_id != result["user_id"]:
+
+                        if prop.get("mortgaged") == "1":
+                            username = client.hget(player_key, "username") or result["user_id"]
+                            prop_name = prop.get("name", "")
+
+                            log_msg = (
+                                f"{username} попал на собственность «{prop_name}», "
+                                "но она под залогом — арендная плата не взимается."
+                            )
+                            log_entry = create_game_log(self.session_id, log_msg)
+
+                            await self.channel_layer.group_send(
+                                self.group_name,
+                                {"type": "game_log", "message": log_entry["message"]},
+                            )
+
+                            info = get_next_turn_and_log(self.session_id)
+
+                            await self.channel_layer.group_send(
+                                self.group_name,
+                                {"type": "game_log", "message": info["log"]["message"]},
+                            )
+
+                            await self.channel_layer.group_send(
+                                f"user_{info['next_turn']}",
+                                {"type": "your_turn"},
+                            )
+                            return
+
                         amount = 0
 
                         if ptype == "company":
@@ -611,7 +644,6 @@ class GameConsumer(AsyncWebsocketConsumer):
                     {
                         "type": "game_log",
                         "message": info["log"]["message"],
-                        "timestamp": info["log"]["timestamp"],
                     }
                 )
                 await self.channel_layer.group_send(
@@ -619,6 +651,188 @@ class GameConsumer(AsyncWebsocketConsumer):
                     {"type": "your_turn"}
                 )
 
+            elif msg.get("type") == "build_house":
+                property_id = msg.get("property_id")
+                try:
+                    result = await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        lambda: build_house(self.session_id, self.user_id, property_id)
+                    )
+                except ValueError as e:
+                    await self.send(text_data=json.dumps({
+                        "type": "error",
+                        "message": str(e)
+                    }))
+                    return
+
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        "type": "build_house",
+                        "property_id": result["property_id"],
+                        "houses": result["new_houses"],
+                        "owner_id": result["owner_id"],
+                    },
+                )
+
+                log_entry = result["log"]
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        "type": "game_log",
+                        "message": log_entry["message"],
+                    },
+                )
+
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        "type": "game_balance_update",
+                        "balances": {
+                            result["owner_id"]: result["new_balance"]
+                        },
+                    },
+                )
+
+                return
+
+            elif msg.get("type") == "sell_house":
+                property_id = msg.get("property_id")
+                try:
+                    result = await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        lambda: sell_house(self.session_id, self.user_id, property_id)
+                    )
+                except ValueError as e:
+                    await self.send(text_data=json.dumps({
+                        "type": "error",
+                        "message": str(e)
+                    }))
+                    return
+
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        "type": "sell_house",
+                        "property_id": result["property_id"],
+                        "houses": result["new_houses"],
+                        "owner_id": result["owner_id"],
+                    },
+                )
+
+                log_entry = result["log"]
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        "type": "game_log",
+                        "message": log_entry["message"],
+                    },
+                )
+
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        "type": "game_balance_update",
+                        "balances": {
+                            result["owner_id"]: result["new_balance"]
+                        },
+                    },
+                )
+
+                return
+
+            elif msg.get("type") == "mortgage_property":
+                property_id = msg.get("property_id")
+                try:
+                    result = await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        lambda: mortgage_property(self.session_id, self.user_id, property_id)
+                    )
+                except ValueError as e:
+                    await self.send(text_data=json.dumps({
+                        "type": "error",
+                        "message": str(e)
+                    }))
+                    return
+
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        "type": "property_mortgaged",
+                        "property_id": result["property_id"],
+                        "mortgaged": result["new_mortgaged"],
+                        "owner_id": result["owner_id"],
+                        "mortgage_turns_left": result["mortgage_turns_left"],
+                        "color": result["color"],
+                    },
+                )
+
+                log_entry = result["log"]
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        "type": "game_log",
+                        "message": log_entry["message"],
+                    },
+                )
+
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        "type": "game_balance_update",
+                        "balances": {
+                            result["owner_id"]: result["new_balance"]
+                        },
+                    },
+                )
+
+                return
+            
+            elif msg.get("type") == "redeem_property":
+                property_id = msg.get("property_id")
+                try:
+                    result = await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        lambda: redeem_property(self.session_id, self.user_id, property_id)
+                    )
+                except ValueError as e:
+                    await self.send(text_data=json.dumps({
+                        "type": "error",
+                        "message": str(e)
+                    }))
+                    return
+
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        "type": "property_redeemed",
+                        "property_id": result["property_id"],
+                        "mortgaged": result["new_mortgaged"],
+                        "owner_id": result["owner_id"],
+                        "mortgage_turns_left": result["mortgage_turns_left"]
+                    },
+                )
+
+                log_entry = result["log"]
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        "type": "game_log",
+                        "message": log_entry["message"],
+                    },
+                )
+
+                await self.channel_layer.group_send(
+                    self.group_name,
+                    {
+                        "type": "game_balance_update",
+                        "balances": {
+                            result["owner_id"]: result["new_balance"]
+                        },
+                    },
+                )
+                return
+        
             elif msg.get("type") == "chat":
                 text = msg.get("text", "").strip()
                 if not text:
@@ -656,6 +870,17 @@ class GameConsumer(AsyncWebsocketConsumer):
             "type": "balance_update",
             "balances": event["balances"],
         }))
+    
+    async def build_house(self, event):
+        await self.send(text_data=json.dumps(event))
+    async def sell_house(self, event):
+        await self.send(text_data=json.dumps(event))
+
+    async def property_mortgaged(self, event):
+        await self.send(text_data=json.dumps(event))
+
+    async def property_redeemed(self, event):
+        await self.send(text_data=json.dumps(event))
     
     async def message(self, event):
         await self.send(text_data=json.dumps({

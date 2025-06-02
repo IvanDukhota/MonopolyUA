@@ -493,6 +493,7 @@ def start_lobby(lobby_id: str) -> str:
                 "color": color,
                 "username": username,
                 "avatar": avatar_url,
+                "acted_props": json.dumps([]),
             },
         )
 
@@ -568,6 +569,12 @@ def start_lobby(lobby_id: str) -> str:
 
     # 6. Очищуємо логи та чат
     client.delete(f"game:{session_id}:logs", f"game:{session_id}:chat")
+
+    turn_state_key = f"game:{session_id}:turn_state"
+    client.hset(turn_state_key, mapping={
+        "phase": "idle",
+        "current_player": "",
+    })
 
     # 7. Видаляємо лобі
     remove_lobby(lobby_id)
