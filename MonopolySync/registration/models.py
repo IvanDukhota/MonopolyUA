@@ -22,7 +22,7 @@ class CustomUserManager(BaseUserManager):
 class User(AbstractUser):
     email = models.EmailField(unique=True, blank=True, null=True)
     birth_date = models.DateField(null=True, blank=True)
-    avatar = models.ImageField(upload_to="avatars/", null=True, blank=True)
+    avatar = models.ImageField(upload_to="avatars/", null=True, blank=True, default="avatars/default.png")
 
     GENDER_CHOICES = [
         ('male', 'Male'),

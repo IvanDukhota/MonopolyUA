@@ -6,9 +6,9 @@ class Item(models.Model):
     CATEGORY_DICE = 'dice'
     CATEGORY_CASE = 'case'
     CATEGORY_CHOICES = [
-        (CATEGORY_CARD, 'Card'),
-        (CATEGORY_DICE, 'Dice'),
-        (CATEGORY_CASE, 'Case'),
+        (CATEGORY_CARD, 'Карта'),
+        (CATEGORY_DICE, 'Кубик'),
+        (CATEGORY_CASE, 'Кейс'),
     ]
 
     RARITY_COMMON = 'common'
@@ -16,10 +16,10 @@ class Item(models.Model):
     RARITY_EPIC = 'epic'
     RARITY_LEGENDARY = 'legendary'
     RARITY_CHOICES = [
-        (RARITY_COMMON, 'Common'),
-        (RARITY_RARE, 'Rare'),
-        (RARITY_EPIC, 'Epic'),
-        (RARITY_LEGENDARY, 'Legendary'),
+        (RARITY_COMMON, 'Звичайний'),
+        (RARITY_RARE, 'Рідкісний'),
+        (RARITY_EPIC, 'Епічний'),
+        (RARITY_LEGENDARY, 'Легендарний'),
     ]
 
     name = models.CharField(max_length=120)
@@ -31,6 +31,7 @@ class Item(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.category})"
+
 
 
 class CaseItemContent(models.Model):

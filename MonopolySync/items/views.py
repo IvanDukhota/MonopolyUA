@@ -1,21 +1,22 @@
-from django.shortcuts import render
 from rest_framework.views import APIView
-from rest_framework.response import Response
+import random
+from django.db import transaction
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from django.shortcuts import get_object_or_404
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from collections import Counter
 from .models import Item, InventoryItem, MarketListing, CaseItemContent
-from registration.models import User
 from .serializers import ItemSerializer
-from django.db import transaction
-from .serializers import MarketListingSerializer, UserListingSerializer, InventoryItemSerializer
-import random
+from .serializers import MarketListingSerializer, UserListingSerializer, InventoryItemSerializer,CaseSerializer
+
 
 class ItemsListAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        items = Item.objects.all()
+        items = Item.objects.filter(is_default=False)
         serializer = ItemSerializer(items, many=True, context={'request': request})
         return Response(serializer.data)
 
@@ -55,34 +56,40 @@ class ItemView(APIView):
 
     def get(self, request, item_id):
         item = get_object_or_404(Item, id=item_id)
-        serializer = ItemSerializer(item, context={'request': request})
-        return Response(serializer.data)
+        item_serializer = ItemSerializer(item, context={'request': request})
+
+        listings = MarketListing.objects.filter(item=item)
+        listing_serializer = MarketListingSerializer(listings, many=True, context={'request': request})
+
+        return Response({
+            'item': item_serializer.data,
+            'market_listings': listing_serializer.data
+        })
 
 
 class InventoryView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        category = request.query_params.get('category')
-        if category:
-            category = category.strip().lower()
+    def get(self, request, item_id=None):
+        if item_id is None:
+            category = request.query_params.get('category')
+            inventory_items = InventoryItem.objects.filter(user=request.user).select_related('item')
 
-        inventory_items = InventoryItem.objects.filter(user=request.user).select_related('item')
+            if category:
+                category = category.strip().lower()
+                valid_categories = [choice[0].lower() for choice in Item.CATEGORY_CHOICES]
 
-        if category:
-            valid_categories = [choice[0].lower() for choice in Item.CATEGORY_CHOICES]
-            print("Valid categories:", valid_categories)
-            print("Category from request:", category)
+                if category not in valid_categories:
+                    raise ValidationError({'category': 'Неправильна категорія'})
 
-            if category not in valid_categories:
-                raise ValidationError({'category': 'Invalid category value'})
+                inventory_items = inventory_items.filter(item__category__iexact=category)
 
-            inventory_items = inventory_items.filter(item__category__iexact=category)
-
-        serializer = InventoryItemSerializer(inventory_items, many=True, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
+            serializer = InventoryItemSerializer(inventory_items, many=True, context={'request': request})
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            inventory_item = get_object_or_404(InventoryItem, user=request.user, item__id=item_id)
+            serializer = InventoryItemSerializer(inventory_item, context={'request': request})
+            return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class BuyItemAPIView(APIView):
@@ -92,13 +99,12 @@ class BuyItemAPIView(APIView):
     def post(self, request, listing_id):
         listing = get_object_or_404(MarketListing, id=listing_id)
 
-
         price = listing.user_price
         buyer = request.user
         seller = listing.seller
 
         if buyer.game_currency < price:
-            return Response({'error': 'Not enough money.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Недостатньо грошей.'}, status=status.HTTP_400_BAD_REQUEST)
 
         buyer.game_currency -= price
         buyer.save(update_fields=['game_currency'])
@@ -117,7 +123,7 @@ class BuyItemAPIView(APIView):
         listing.delete()
 
         return Response({
-            'message': f'You bought 1 × {listing.item.name}',
+            'message': f'Ви купили 1 × {listing.item.name}',
             'item_id': listing.item.id,
             'remaining_in_listing': listing.quantity if listing.pk else 0
         }, status=status.HTTP_200_OK)
@@ -129,22 +135,26 @@ class BuyMultipleItemAPIView(APIView):
     @transaction.atomic
     def post(self, request, item_id):
         item = get_object_or_404(Item, id=item_id)
-
         try:
             user_price = request.data.get('user_price')
             user_quantity = int(request.data.get('user_quantity'))
             if user_quantity <= 0 or user_price <= 0:
                 raise ValueError
         except (TypeError, ValueError):
-            return Response({'error': 'Invalid price or quantity'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Неправильна ціна або кількість'}, status=status.HTTP_400_BAD_REQUEST)
 
         buyer = request.user
 
-        market_listings = MarketListing.objects.filter(item=item, user_price__lte=user_price).order_by('user_price')
+        market_listings = MarketListing.objects.filter(
+            item=item,
+            user_price__lte=user_price
+        ).exclude(
+            seller=buyer
+        ).order_by('user_price')
 
         total_available = market_listings.count()
         if total_available < user_quantity:
-            return Response({'error': 'Not enough items available in market.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Недостатньо товарів в продажу.'}, status=status.HTTP_400_BAD_REQUEST)
 
         total_spent = 0
         total_bought = 0
@@ -154,7 +164,7 @@ class BuyMultipleItemAPIView(APIView):
         for listing in listings_to_buy:
             price = listing.user_price
             if buyer.game_currency < price:
-                return Response({'error': 'Not enough money.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'Недостатньо грошей.'}, status=status.HTTP_400_BAD_REQUEST)
 
             buyer.game_currency -= price
             buyer.save(update_fields=['game_currency'])
@@ -176,8 +186,14 @@ class BuyMultipleItemAPIView(APIView):
             total_spent += price
             total_bought += 1
 
+        if total_bought < user_quantity:
+            return Response({
+                'message': f'Ви купили лише {total_bought} × {item.name}. Через недостачу грошей або відсутність товару',
+                'item_id': item.id,
+            }, status=status.HTTP_200_OK)
+
         return Response({
-            'message': f'You bought {total_bought} × {item.name} for {total_spent}',
+            'message': f'Ви купили {total_bought} × {item.name} Ціна: {total_spent}',
             'item_id': item.id,
         }, status=status.HTTP_200_OK)
 
@@ -191,30 +207,30 @@ class SellItemView(APIView):
         price_item = request.data.get("price")
 
         if not item_id or not quantity or not price_item:
-            return Response({"message": "item_id, quantity and price are required."},
+            return Response({"message": "Потрібні item_id, quantity та price."},
                             status=status.HTTP_400_BAD_REQUEST)
 
         try:
             quantity = int(quantity)
             price_item = int(price_item)
             if quantity <= 0 or price_item <= 0:
-                return Response({"message": "quantity and price must be positive nums."},
+                return Response({"message": "Кількість і ціна повинні бути позитивними числами."},
                                 status=status.HTTP_400_BAD_REQUEST)
         except ValueError:
-            return Response({"message": "quantity and price must be integers."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": "Кількість і ціна повинні бути числами."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             item = Item.objects.get(id=item_id)
         except Item.DoesNotExist:
-            return Response({"message": "Item not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Предмет не знайдено."}, status=status.HTTP_404_NOT_FOUND)
 
         try:
             inventory = InventoryItem.objects.get(user=request.user, item=item)
         except InventoryItem.DoesNotExist:
-            return Response({"message": "Item not in inventory."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Предмет відсутній в інвентарі."}, status=status.HTTP_404_NOT_FOUND)
 
         if inventory.quantity < quantity:
-            return Response({"message": "Not enough items in inventory."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": "Недостатньо предметів в інвентарі."}, status=status.HTTP_400_BAD_REQUEST)
 
         inventory.quantity -= quantity
         if inventory.quantity == 0:
@@ -229,7 +245,7 @@ class SellItemView(APIView):
                 user_price=price_item,
             )
 
-        return Response({"message": f"Successfully listed {quantity} x {item.name} for sale at price {price_item}."},
+        return Response({"message": f"Успішно виставлено {quantity} x {item.name} на продаж. Ціна: {price_item}."},
                         status=status.HTTP_201_CREATED)
 
 
@@ -241,18 +257,23 @@ RARITY_WEIGHTS = {
     Item.RARITY_LEGENDARY: 10,
 }
 
-from collections import Counter
 
 class OpenCaseAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
         case_id = request.data.get("case_id")
         case = get_object_or_404(Item, id=case_id, category=Item.CATEGORY_CASE)
-
+        inv_case = InventoryItem.objects.get(user=request.user, item=case)
+        if inv_case.quantity <= 1:
+            inv_case.delete()
+        else:
+            inv_case.quantity -= 1
+            inv_case.save()
         contents = CaseItemContent.objects.filter(case=case).select_related('item')
         if not contents.exists():
-            return Response({'detail': 'Empty case'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Кейс пустий'}, status=status.HTTP_400_BAD_REQUEST)
 
         rarity_counts = Counter()
         for content in contents:
@@ -269,11 +290,30 @@ class OpenCaseAPIView(APIView):
                 weights.append(weight_per_item)
 
         if not items:
-            return Response({'detail': 'No items.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Предмети відсутні.'}, status=status.HTTP_400_BAD_REQUEST)
 
         selected_item = random.choices(items, weights=weights, k=1)[0]
+        inventory_item, created = InventoryItem.objects.get_or_create(
+            user=request.user,
+            item=selected_item,
+            defaults={'quantity': 1}
+        )
+        if not created:
+            inventory_item.quantity += 1
+            inventory_item.save()
 
-        serializer = ItemSerializer(selected_item)
+        serializer = ItemSerializer(selected_item, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CaseItemView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, case_id):
+        case = get_object_or_404(Item, id=case_id, category=Item.CATEGORY_CASE)
+
+        serializer = CaseSerializer(case, context={'request': request})
+
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 

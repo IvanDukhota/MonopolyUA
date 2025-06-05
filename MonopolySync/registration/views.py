@@ -8,9 +8,10 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.conf import settings
 import requests
-from django.shortcuts import redirect
-
-
+from django.shortcuts import redirect, get_object_or_404
+from django.core.mail import send_mail
+import random
+import string
 
 User = get_user_model()
 
@@ -50,7 +51,7 @@ class LoginView(APIView):
                 "access": str(refresh.access_token),
             }, status=status.HTTP_200_OK)
 
-        return Response({"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": "Неправильні дані"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class GoogleLoginRedirectView(APIView):
@@ -98,7 +99,7 @@ class GoogleCallbackView(APIView):
         name = user_info.get('name')
 
         if not email:
-            return Response({'error': 'Email not found'}, status=400)
+            return Response({'error': 'Пошту не знайдено'}, status=400)
 
         user, _ = User.objects.get_or_create(email=email, defaults={'username': name})
         refresh = RefreshToken.for_user(user)
@@ -106,3 +107,34 @@ class GoogleCallbackView(APIView):
         redirect_url = f"{settings.CLIENT_URI}/google-success.html?access={refresh.access_token}&refresh={refresh}"
         return redirect(redirect_url)
 
+
+class ForgotPasswordView(APIView):
+    def post(self,request):
+        email = request.data.get('email')
+        user = get_object_or_404(User, email=email)
+        new_password = generate_password()
+
+        user.set_password(new_password)
+        user.save()
+        send_mail(
+            subject="Відновлення пароля",
+            message=f"Ваш новий пароль: {new_password}",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False
+        )
+
+        return Response({"message": "Новий пароль надіслано на вашу пошту"}, status=status.HTTP_200_OK)
+
+
+def generate_password(length=8):
+    required = [
+        random.choice(string.ascii_uppercase),
+        random.choice(string.ascii_lowercase),
+        random.choice(string.digits),
+        random.choice("!@#$%^&*")
+    ]
+    all_chars = string.ascii_letters + string.digits + "!@#$%^&*"
+    remaining = random.choices(all_chars, k=length - 4)
+    password = ''.join(random.sample(required + remaining, length))
+    return password

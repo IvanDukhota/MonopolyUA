@@ -1,43 +1,75 @@
 from django.core.management.base import BaseCommand
-import random
 import os
-import requests
+import random
 from django.conf import settings
 from items.models import Item
+from django.core.files import File
+
 
 class Command(BaseCommand):
-    help = "Generate 60 cards"
+    help = "Generate items from images in media/items"
 
-    def handle(self, *args, **kwargs):
+    def handle(self, *args, **options):
         media_root = settings.MEDIA_ROOT
         items_path = os.path.join(media_root, "items")
-        os.makedirs(items_path, exist_ok=True)
+
+        # image_files = [f for f in os.listdir(items_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+        # if not image_files:
+        #     self.stdout.write(self.style.ERROR("No image files found in media/items"))
+        #     return
+        #
+        # for image_file in image_files:
+        #     name = os.path.splitext(image_file)[0]
+        #     price = random.randint(1, 10)
+        #     category = 'card'
+        #     rarity = 'common'
+        #
+        #     image_path = os.path.join("items", image_file)
+        #
+        #     Item.objects.create(
+        #         name=name,
+        #         price=price,
+        #         rarity=rarity,
+        #         category=category,
+        #         image=image_path,
+        #         is_default=True
+        #     )
+        #
+        # self.stdout.write(self.style.SUCCESS(f"Created {len(image_files)} items successfully."))
 
 
-        def download_card_image(card_id):
-            url = f"https://picsum.photos/200"
-            response = requests.get(url)
-            if response.status_code == 200:
-                filename = f"card_{card_id}.jpg"
-                filepath = os.path.join(items_path, filename)
-                with open(filepath, 'wb') as f:
-                    f.write(response.content)
-                return f"items/{filename}"
-            return None
+        non_default_images = [
+            "xiaomi.png",
+            "versace.png",
+            "ubisoft.png",
+            "twitter.png",
+            "tiktok.png",
+            "starbucks.png",
+            "shahtar.png",
+            "pinterest.png",
+            "Iv.png",
+            "gucci.png",
+            "gmail.png",
+            "dynamo.png"
+        ]
 
-        for i in range(1, 41):
-            name = f"Card {i}"
-            price = random.randint(1, 10)
-            category = 'card'
-            image_path = download_card_image(i)
+        rarities = ['common', 'rare', 'epic', 'legendary']
+        category = 'card'
 
+        for image_file in non_default_images:
+            name = os.path.splitext(image_file)[0]
+            price = random.randint(10, 100)
+            rarity = random.choice(rarities)
+
+            image_path = os.path.join("items", image_file)
             Item.objects.create(
                 name=name,
                 price=price,
-                rarity="common",
+                rarity=rarity,
                 category=category,
                 image=image_path,
-                is_default=True
+                is_default=False
             )
 
-        self.stdout.write(self.style.SUCCESS("Success"))
+        self.stdout.write(
+            self.style.SUCCESS(f"Created {len(non_default_images)} non-default items with random rarity successfully."))
