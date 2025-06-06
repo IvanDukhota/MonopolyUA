@@ -572,8 +572,7 @@ def start_lobby(lobby_id: str) -> str:
 
     turn_state_key = f"game:{session_id}:turn_state"
     client.hset(turn_state_key, mapping={
-        "phase": "idle",
-        "current_player": "",
+        "phase": "new_game",
     })
 
     # 7. Видаляємо лобі

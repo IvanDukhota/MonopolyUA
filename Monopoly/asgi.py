@@ -18,6 +18,8 @@ from channels.auth import AuthMiddlewareStack
 from django.core.asgi import get_asgi_application
 import lobby.routing, game.routing
 from core.jwt_middleware import JwtAuthMiddleware
+import asyncio
+import threading
 
 application = ProtocolTypeRouter(
     {
@@ -30,3 +32,14 @@ application = ProtocolTypeRouter(
         ),
     }
 )
+
+def _start_turn_manager_loop():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    from game.turn_manager import monitor_all_games
+
+    loop.create_task(monitor_all_games())
+    loop.run_forever()
+
+threading.Thread(target=_start_turn_manager_loop, daemon=True).start()

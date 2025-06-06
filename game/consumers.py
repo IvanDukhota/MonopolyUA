@@ -1,6 +1,7 @@
 import json
 import asyncio
 import random
+import time
 from channels.generic.websocket import AsyncWebsocketConsumer
 from .redis_client import (
     client,
@@ -9,14 +10,14 @@ from .redis_client import (
     process_player_move,
     create_game_log,
     buy_property,
-    get_next_turn_and_log,
     pay_rent,
     process_utility_payment,
-    advance_turn,
     build_house,
     sell_house,
     mortgage_property,
-    redeem_property
+    redeem_property,
+    init_roll_dice_turn,
+    pass_turn_to_next
 )
 
 MOVE_CARDS = [
@@ -69,13 +70,30 @@ class GameConsumer(AsyncWebsocketConsumer):
             json.dumps({"type": "init", "state": state, "user_id": str(self.user_id)})
         )
 
-        current = state["meta"].get("current_turn")
-        if current and str(self.user_id) == current:
-            await self.send(json.dumps({"type": "turn_start"}))
+        turn_state_key = f"game:{self.session_id}:turn_state"
+        turn_state = client.hgetall(turn_state_key) or {}
+        current_phase = turn_state.get("phase")
+
+        current_turn = state["meta"].get("current_turn")
+
+        if current_phase == "new_game" and str(self.user_id) == current_turn:
+            new_turn_state = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: init_roll_dice_turn(self.session_id, self.user_id, timeout_seconds=15)
+            )
+
+            await self.channel_layer.group_send(
+                self.group_name,
+                {
+                    "type": "turn_state_update",
+                    "turn_state": new_turn_state
+                }
+            )
 
         self.pubsub = client.pubsub(ignore_subscribe_messages=True)
         self.pubsub.subscribe(f"game:{self.session_id}:updates")
         self.listen_task = asyncio.create_task(self.listen_pubsub())
+
 
     async def disconnect(self, close_code):
         if hasattr(self, "listen_task"):
@@ -162,16 +180,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                         {"type": "message", "message": msg_text},
                     )
 
-                    advance_turn(self.session_id)
-                    info = get_next_turn_and_log(self.session_id)
-                    await self.channel_layer.group_send(
-                        self.group_name,
-                        {"type": "game_log", "message": info["log"]["message"]},
-                    )
-                    await self.channel_layer.group_send(
-                        f"user_{info['next_turn']}",
-                        {"type": "your_turn"},
-                    )
+                    await pass_turn_to_next(self.session_id)
                     return
 
 
@@ -207,141 +216,120 @@ class GameConsumer(AsyncWebsocketConsumer):
                 
 
                 prop_key = f"game:{self.session_id}:property:{result['to']}"
-                player_key = f"game:{self.session_id}:player:"
 
                 prop = client.hgetall(prop_key)
                 ptype = prop.get("type")
+                owner_id = prop.get("owner")
 
-                if ptype in ("company", "automaker", "utility"):
-                    owner_id = prop.get("owner")
+                turn_state_key = f"game:{self.session_id}:turn_state"
 
-                    if owner_id and owner_id != result["user_id"]:
+                if ptype in ("company", "automaker", "utility") and owner_id and owner_id != result["user_id"]:
+                    owner_key = f"game:{self.session_id}:player:{owner_id}"
+                    owner_name = client.hget(owner_key, "username") or owner_id
 
-                        if prop.get("mortgaged") == "1":
-                            username = client.hget(player_key, "username") or result["user_id"]
-                            prop_name = prop.get("name", "")
-
-                            log_msg = (
-                                f"{username} попал на собственность «{prop_name}», "
-                                "но она под залогом — арендная плата не взимается."
-                            )
-                            log_entry = create_game_log(self.session_id, log_msg)
-
-                            await self.channel_layer.group_send(
-                                self.group_name,
-                                {"type": "game_log", "message": log_entry["message"]},
-                            )
-
-                            info = get_next_turn_and_log(self.session_id)
-
-                            await self.channel_layer.group_send(
-                                self.group_name,
-                                {"type": "game_log", "message": info["log"]["message"]},
-                            )
-
-                            await self.channel_layer.group_send(
-                                f"user_{info['next_turn']}",
-                                {"type": "your_turn"},
-                            )
-                            return
-
-                        amount = 0
-
-                        if ptype == "company":
-                            rents = json.loads(prop["rent"])
-                            houses = int(prop.get("houses", 0))
-                            amount = rents[houses]
-
-                        elif ptype == "automaker":
-                            automaker_keys = client.keys(
-                                f"game:{self.session_id}:property:*"
-                            )
-                            count = 0
-                            for key in automaker_keys:
-                                p = client.hgetall(key)
-                                if (
-                                    p.get("type") == "automaker"
-                                    and p.get("owner") == owner_id
-                                ):
-                                    count += 1
-                            rents = json.loads(prop["rent"])
-                            amount = (
-                                rents[count - 1]
-                                if 1 <= count <= len(rents)
-                                else rents[-1]
-                            )
-
-                        elif ptype == "utility":
-
-                            util_count = 0
-                            for key in client.keys(
-                                f"game:{self.session_id}:property:*"
-                            ):
-                                p = client.hgetall(key)
-                                if (
-                                    p.get("type") == "utility"
-                                    and p.get("owner") == owner_id
-                                ):
-                                    util_count += 1
-
-                            multiplier = 4 if util_count == 1 else 10
-
-                            await self.send(
-                                text_data=json.dumps(
-                                    {
-                                        "type": "property_action",
-                                        "action": "roll_for_utility",
-                                        "property_id": result["to"],
-                                        "multiplier": multiplier,
-                                        "owner": owner_id,
-                                        "owner_name": client.hget(
-                                            player_key + prop["owner"], "username"
-                                        ),
-                                    }
-                                )
-                            )
-                            return
-
-                        await self.channel_layer.group_send(
-                            self.user_group,
-                            {
-                                "type": "property_action",
-                                "action": "pay_rent",
-                                "property_id": result["to"],
-                                "property_name": prop["name"],
-                                "amount": amount,
-                                "owner": owner_id,
-                                "owner_name": client.hget(
-                                    player_key + prop["owner"], "username"
-                                ),
-                            },
-                        ) 
-
-                    elif not owner_id:
-                        await self.channel_layer.group_send(
-                            self.user_group,
-                            {
-                                "type": "property_action",
-                                "action": "offer_buy",
-                                "property_id": result["to"],
-                                "property_name": prop["name"],
-                                "price": prop["buy_price"],
-                            },
+                    if prop.get("mortgaged") == "1":
+                        username = client.hget(f"game:{self.session_id}:player:{self.user_id}", "username") or str(self.user_id)
+                        prop_name = prop.get("name", "")
+                        log_msg = (
+                            f"{username} попал на «{prop_name}», "
+                            "але вона під заставою — орендну плату не стягуємо."
                         )
-
-                    elif owner_id and owner_id == result["user_id"]:
-                        info = get_next_turn_and_log(self.session_id)
+                        log_entry = create_game_log(self.session_id, log_msg)
                         await self.channel_layer.group_send(
                             self.group_name,
-                            {
-                                "type": "game_log",
-                                "message": info["log"]["message"],
-                            },
+                            {"type": "game_log", "message": log_entry["message"]},
                         )
+
+                        await pass_turn_to_next(self.session_id)
+                        return
+
+                    if ptype == "company":
+                        rents  = json.loads(prop["rent"])
+                        houses = int(prop.get("houses", 0))
+                        amount = rents[houses]
+
+                    elif ptype == "automaker":
+                        automaker_keys = client.keys(f"game:{self.session_id}:property:*")
+                        count = 0
+                        for key in automaker_keys:
+                            p = client.hgetall(key)
+                            if p.get("type") == "automaker" and p.get("owner") == owner_id:
+                                count += 1
+                        rents = json.loads(prop["rent"])
+                        amount = rents[count - 1] if 1 <= count <= len(rents) else rents[-1]
+
+                    elif ptype == "utility":
+                        util_keys = client.keys(f"game:{self.session_id}:property:*")
+                        util_count = 0
+                        for key in util_keys:
+                            p = client.hgetall(key)
+                            if p.get("type") == "utility" and p.get("owner") == owner_id:
+                                util_count += 1
+                        multiplier = 4 if util_count == 1 else 10
+
+                        expires_at = int(time.time()) + 35
+                        client.hset(turn_state_key, mapping={
+                            "phase": "await_pay_utility",
+                            "current_player": str(self.user_id),
+                            "expires_at": str(expires_at),
+
+                            "action_payload": json.dumps({
+                                "property_id": result["to"],
+                                "owner": owner_id,
+                                "owner_name": owner_name,
+                                "multiplier": multiplier,
+                            }),
+                        })
+
+                        new_state = client.hgetall(turn_state_key)
                         await self.channel_layer.group_send(
-                            f"user_{info['next_turn']}",
-                            {"type": "your_turn"},
+                            self.group_name,
+                            {"type": "turn_state_update", "turn_state": new_state},
                         )
+                        return
+
+                    expires_at = int(time.time()) + 35
+                    client.hset(turn_state_key, mapping={
+                        "phase": "await_pay_rent",
+                        "current_player": str(self.user_id),
+                        "expires_at": str(expires_at),
+                        "action_payload": json.dumps({
+                            "property_id": result["to"],
+                            "owner": owner_id,
+                            "owner_name": owner_name,
+                            "amount": amount
+                        }),
+                    })
+                    new_state = client.hgetall(turn_state_key)
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "turn_state_update", "turn_state": new_state},
+                    )
+                    return
+
+                elif ptype in ("company", "automaker", "utility") and not owner_id:
+                    price = int(prop["buy_price"])
+                    expires_at = int(time.time()) + 35
+                    client.hset(turn_state_key, mapping={
+                        "phase": "await_purchase",
+                        "current_player": str(self.user_id),
+                        "expires_at": str(expires_at),
+                        "action_payload": json.dumps({
+                            "property_id": result["to"],
+                            "property_name": prop.get("name",""),
+                            "price": price
+                        }),
+                    })
+                    new_state = client.hgetall(turn_state_key)
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "turn_state_update", "turn_state": new_state},
+                    )
+                    return
+
+                elif ptype in ("company", "automaker", "utility") and owner_id == result["user_id"]:
+                    await pass_turn_to_next(self.session_id)
+                    return
 
                 elif ptype == "action":
                     action_type = prop.get("action_type")
@@ -380,18 +368,9 @@ class GameConsumer(AsyncWebsocketConsumer):
                                 "type": "game_balance_update",
                                 "balances": { str(self.user_id): new_balance },
                             },
-                        )
-                    
-                    info = get_next_turn_and_log(self.session_id)
-                    await self.channel_layer.group_send(
-                        self.group_name,
-                        {"type": "game_log", "message": info["log"]["message"]},
-                    )
-                    await self.channel_layer.group_send(
-                        f"user_{info['next_turn']}",
-                        {"type": "your_turn"},
-                    )
+                        )            
 
+                    await pass_turn_to_next(self.session_id)
                     return
 
                 elif ptype == "side":
@@ -400,18 +379,9 @@ class GameConsumer(AsyncWebsocketConsumer):
                     username = client.hget(player_key, "username") or self.user_id
 
                     if cell_name in ("Start", "Prison/Pass", "Casino"):
-                        info = get_next_turn_and_log(self.session_id)
-                        await self.channel_layer.group_send(
-                            self.group_name,
-                            {
-                                "type": "game_log",
-                                "message": info["log"]["message"],
-                            },
-                        )
-                        await self.channel_layer.group_send(
-                            f"user_{info['next_turn']}",
-                            {"type": "your_turn"},
-                        )
+
+                        await pass_turn_to_next(self.session_id)
+
                     
                     elif cell_name == "GoToPrison":
                         immune = int(client.hget(player_key, "immune_to_jail") or 0)
@@ -480,15 +450,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                                     {"type": "message", "message": msg_self},
                                 )
 
-                            info = get_next_turn_and_log(self.session_id)
-                            await self.channel_layer.group_send(
-                                self.group_name,
-                                {"type": "game_log", "message": info["log"]["message"]},
-                            )
-                            await self.channel_layer.group_send(
-                                f"user_{info['next_turn']}",
-                                {"type": "your_turn"},
-                            )
+                            await pass_turn_to_next(self.session_id)
 
                         asyncio.create_task(delayed_prison_actions())
                         return
@@ -517,20 +479,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                     },
                 )
 
-                info = get_next_turn_and_log(self.session_id)
-
-                await self.channel_layer.group_send(
-                    self.group_name,
-                    {
-                        "type": "game_log",
-                        "message": info["log"]["message"],
-                    }
-                )
-
-                await self.channel_layer.group_send(
-                    f"user_{info['next_turn']}",
-                    {"type": "your_turn"}
-                )
+                await pass_turn_to_next(self.session_id)
 
             elif msg.get("type") == "decline_buy":
                 property_id   = msg.get("property_id")
@@ -548,19 +497,8 @@ class GameConsumer(AsyncWebsocketConsumer):
                     }
                 )
 
-                info = get_next_turn_and_log(self.session_id)
-                await self.channel_layer.group_send(
-                    self.group_name,
-                    {
-                        "type": "game_log",
-                        "message": info["log"]["message"],
-                    }
-                )
-                
-                await self.channel_layer.group_send(
-                    f"user_{info['next_turn']}",
-                    {"type": "your_turn"}
-                )
+                await pass_turn_to_next(self.session_id)
+
 
             elif msg.get("type") == "confirm_pay_rent":
                 owner   = msg["owner"]
@@ -588,31 +526,19 @@ class GameConsumer(AsyncWebsocketConsumer):
                     }
                 )
 
-                info = get_next_turn_and_log(self.session_id)
-                await self.channel_layer.group_send(
-                    self.group_name,
-                    {
-                        "type": "game_log",
-                        "message": info["log"]["message"]
-                    }
-                )
-
-                await self.channel_layer.group_send(
-                    f"user_{info['next_turn']}",
-                    {"type": "your_turn"}
-                )
+                await pass_turn_to_next(self.session_id)
 
             if msg.get("type") == "confirm_pay_utility":
-                payer = str(self.user_id)
+                player = str(self.user_id)
                 owner = msg["owner"]
-                amount = int(msg["amount"])
-                sum = int(msg["sum"])
-                multiplier = int(msg["multiplier"])
+                dice = msg["dice"]
+                multiplier = int(msg["multiplier"])         
+                total = sum(dice or [])
 
                 try:
                     result = await asyncio.get_event_loop().run_in_executor(
                         None,
-                        lambda: process_utility_payment(self.session_id, payer, owner, amount, sum, multiplier)
+                        lambda: process_utility_payment(self.session_id, player, owner, total, multiplier)
                     )
                 except ValueError as e:
                     await self.send(text_data=json.dumps({
@@ -638,18 +564,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                     }
                 )
 
-                info = get_next_turn_and_log(self.session_id)
-                await self.channel_layer.group_send(
-                    self.group_name,
-                    {
-                        "type": "game_log",
-                        "message": info["log"]["message"],
-                    }
-                )
-                await self.channel_layer.group_send(
-                    f"user_{info['next_turn']}",
-                    {"type": "your_turn"}
-                )
+                await pass_turn_to_next(self.session_id)
 
             elif msg.get("type") == "build_house":
                 property_id = msg.get("property_id")
@@ -847,20 +762,11 @@ class GameConsumer(AsyncWebsocketConsumer):
     async def game_chat(self, event):
         await self.send(text_data=json.dumps(event["data"]))
 
-    async def game_update(self, event):
-        await self.send(text_data=json.dumps(event["data"]))
-
     async def game_log(self, event):
         await self.send(text_data=json.dumps(event))
 
     async def game_move(self, event):
         await self.send(text_data=json.dumps({"type": "player_move", **event["data"]}))
-
-    async def property_action(self, event):
-        await self.send(text_data=json.dumps(event))
-
-    async def your_turn(self, event):
-        await self.send(text_data=json.dumps({"type": "turn_start", "message": "Ваш ход!"}))
 
     async def game_property_update(self, event):
         await self.send(text_data=json.dumps(event["data"]))
@@ -873,6 +779,7 @@ class GameConsumer(AsyncWebsocketConsumer):
     
     async def build_house(self, event):
         await self.send(text_data=json.dumps(event))
+
     async def sell_house(self, event):
         await self.send(text_data=json.dumps(event))
 
@@ -886,4 +793,19 @@ class GameConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             "type": "message",
             "message": event.get("message", "")
+        }))
+
+    async def turn_state_update(self, event):
+        await self.send(text_data=json.dumps(event))
+
+    async def mortgage_batch_update(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "mortgage_batch_update",
+            "updates": event["updates"]
+        }))
+
+    async def property_released(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "property_released",
+            "property_id": event["property_id"]
         }))

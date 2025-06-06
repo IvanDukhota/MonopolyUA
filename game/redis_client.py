@@ -2,6 +2,9 @@ import redis
 import json
 from core.redis import client
 import time
+from channels.layers import get_channel_layer
+
+CHANNEL_LAYER = get_channel_layer()
 
 
 def get_game_state(session_id: str) -> dict:
@@ -32,7 +35,30 @@ def get_game_state(session_id: str) -> dict:
     chat_key = f"game:{session_id}:chat"
     state["chat"] = client.lrange(chat_key, 0, -1)
 
+    turn_state_key = f"game:{session_id}:turn_state"
+    raw_turn_state = client.hgetall(turn_state_key)
+
+    state["turn_state"] = raw_turn_state or {}
+
     return state
+
+
+def init_roll_dice_turn(
+    session_id: str, user_id: str, timeout_seconds: int = 45
+) -> dict:
+    turn_state_key = f"game:{session_id}:turn_state"
+    expires_at = int(time.time()) + timeout_seconds
+
+    mapping = {
+        "phase": "roll_dice",
+        "current_player": str(user_id),
+        "expires_at": str(expires_at),
+        "action_payload": "",
+    }
+
+    client.hset(turn_state_key, mapping=mapping)
+    raw = client.hgetall(turn_state_key)
+    return raw
 
 
 def append_chat_message(session_id: str, user_id: str, text: str) -> dict:
@@ -63,11 +89,6 @@ def create_game_log(session_id: str, message: str) -> dict:
     return entry
 
 
-
-
-
-
-
 def process_player_move(session_id: str, user_id: str, die1: int, die2: int) -> dict:
     meta_key = f"game:{session_id}:meta"
     player_key = f"game:{session_id}:player:{user_id}"
@@ -84,8 +105,6 @@ def process_player_move(session_id: str, user_id: str, die1: int, die2: int) -> 
     client.hset(
         player_key, mapping={"position": new_pos, "last_roll": json.dumps([die1, die2])}
     )
-
-    advance_turn(session_id)
 
     username = client.hget(player_key, "username") or user_id
     color = client.hget(player_key, "color")
@@ -107,16 +126,6 @@ def process_player_move(session_id: str, user_id: str, die1: int, die2: int) -> 
         "color": color,
         "log": log_entry,
     }
-
-
-
-
-
-
-
-
-
-
 
 
 def buy_property(
@@ -186,11 +195,12 @@ def pay_rent(session_id: str, payer_id: str, owner_id: str, amount: int) -> dict
 
 
 def process_utility_payment(
-    session_id: str, payer_id: str, owner_id: str, amount: int, sum: int, multiplie: int
+    session_id: str, payer_id: str, owner_id: str, sum: int, multiplie: int
 ) -> dict:
     payer_key = f"game:{session_id}:player:{payer_id}"
     owner_key = f"game:{session_id}:player:{owner_id}"
 
+    amount = sum * multiplie
     payer_balance = int(client.hget(payer_key, "balance"))
     if payer_balance < amount:
         raise ValueError("Недостаточно средств для оплаты utility")
@@ -298,14 +308,14 @@ def build_house(session_id: str, user_id: str, property_id: str) -> dict:
 
 def sell_house(session_id: str, user_id: str, property_id: str) -> dict:
     """
-      {
-        "property_id": property_id,
-        "new_houses": <int>,
-        "refund_amount": <int>,
-        "owner_id": str(user_id),
-        "new_balance": <int>,
-        "log": <entry from create_game_log>
-      }
+    {
+      "property_id": property_id,
+      "new_houses": <int>,
+      "refund_amount": <int>,
+      "owner_id": str(user_id),
+      "new_balance": <int>,
+      "log": <entry from create_game_log>
+    }
     """
     player_key = f"game:{session_id}:player:{user_id}"
     prop_key = f"game:{session_id}:property:{property_id}"
@@ -336,9 +346,7 @@ def sell_house(session_id: str, user_id: str, property_id: str) -> dict:
     else:
         what_sold = "дом"
 
-    message = (
-        f"{username} продал {what_sold} на {property_id}:{property_name} и получил {refund_amount}$. "
-    )
+    message = f"{username} продал {what_sold} на {property_id}:{property_name} и получил {refund_amount}$. "
     log_entry = create_game_log(session_id, message)
 
     return {
@@ -353,18 +361,18 @@ def sell_house(session_id: str, user_id: str, property_id: str) -> dict:
 
 def mortgage_property(session_id: str, user_id: str, property_id: str) -> dict:
     """
-      {
-        "property_id": property_id,
-        "new_mortgaged": "1",
-        "owner_id": str(user_id),
-        "new_balance": <int>,
-        "log": <entry from create_game_log>
-      }
+    {
+      "property_id": property_id,
+      "new_mortgaged": "1",
+      "owner_id": str(user_id),
+      "new_balance": <int>,
+      "log": <entry from create_game_log>
+    }
     """
 
     player_key = f"game:{session_id}:player:{user_id}"
-    prop_key   = f"game:{session_id}:property:{property_id}"
-    
+    prop_key = f"game:{session_id}:property:{property_id}"
+
     owner = client.hget(prop_key, "owner")
     if owner != str(user_id):
         raise ValueError("Вы не являетесь владельцем этой карточки.")
@@ -379,7 +387,9 @@ def mortgage_property(session_id: str, user_id: str, property_id: str) -> dict:
             p = client.hgetall(key)
             if p.get("type") == "company" and p.get("group") == group:
                 if int(p.get("houses", "0")) > 0:
-                    raise ValueError("Нельзя заложить, пока есть дома/отель в этом филиале.")
+                    raise ValueError(
+                        "Нельзя заложить, пока есть дома/отель в этом филиале."
+                    )
 
     client.hset(prop_key, "mortgaged", "1")
     client.hset(prop_key, "mortgage_turns_left", "5")
@@ -393,7 +403,9 @@ def mortgage_property(session_id: str, user_id: str, property_id: str) -> dict:
 
     property_name = client.hget(prop_key, "name")
 
-    message  = f"{username} заложил собственность {property_id}: {property_name} за {refund}$."
+    message = (
+        f"{username} заложил собственность {property_id}: {property_name} за {refund}$."
+    )
     log_entry = create_game_log(session_id, message)
 
     return {
@@ -409,18 +421,18 @@ def mortgage_property(session_id: str, user_id: str, property_id: str) -> dict:
 
 def redeem_property(session_id: str, user_id: str, property_id: str) -> dict:
     """
-      {
-        "property_id": <str>,
-        "new_mortgaged": "0",
-        "mortgage_turns_left": "0",
-        "owner_id": <str>,
-        "new_balance": <int>,
-        "log": <log_entry>
-      }
+    {
+      "property_id": <str>,
+      "new_mortgaged": "0",
+      "mortgage_turns_left": "0",
+      "owner_id": <str>,
+      "new_balance": <int>,
+      "log": <log_entry>
+    }
     """
 
     player_key = f"game:{session_id}:player:{user_id}"
-    prop_key   = f"game:{session_id}:property:{property_id}"
+    prop_key = f"game:{session_id}:property:{property_id}"
 
     owner = client.hget(prop_key, "owner")
     if owner != str(user_id):
@@ -445,7 +457,9 @@ def redeem_property(session_id: str, user_id: str, property_id: str) -> dict:
     username = client.hget(player_key, "username") or str(user_id)
     property_name = client.hget(prop_key, "name")
 
-    message = f"{username} выкупил собственность {property_id}: {property_name} за {cost}$."
+    message = (
+        f"{username} выкупил собственность {property_id}: {property_name} за {cost}$."
+    )
     log_entry = create_game_log(session_id, message)
 
     raw_list = client.hget(player_key, "acted_props") or "[]"
@@ -466,56 +480,116 @@ def redeem_property(session_id: str, user_id: str, property_id: str) -> dict:
         "log": log_entry,
     }
 
-def advance_turn(session_id: str) -> str:
-    meta_key = f"game:{session_id}:meta"
 
+async def pass_turn_to_next(session_id: str) -> None:
+    meta_key = f"game:{session_id}:meta"
     turn_order = json.loads(client.hget(meta_key, "turn_order") or "[]")
     if not turn_order:
         raise ValueError("Turn order is empty")
 
-    current = client.hget(meta_key, "current_turn")
-    if current is None or current not in turn_order:
-        raise ValueError(f"Current turn '{current}' is not in turn_order")
+    current_player = client.hget(meta_key, "current_turn")
+    if current_player is None or current_player not in turn_order:
+        raise ValueError(f"Current turn '{current_player}' is not in turn_order")
 
-    player_key_current = f"game:{session_id}:player:{current}"
+    player_key_current = f"game:{session_id}:player:{current_player}"
+    player_color = client.hget(player_key_current, "color") or ""
+    player_username = client.hget(player_key_current, "username") or current_player
+
+    batch_updates = []
+    prop_keys = client.keys(f"game:{session_id}:property:*")
+
+    for prop_key in prop_keys:
+        prop = client.hgetall(prop_key)
+        if not prop:
+            continue
+
+        owner = prop.get("owner")
+        if owner != current_player:
+            continue
+        if prop.get("mortgaged") != "1":
+            continue
+
+        prop_id = prop_key.rsplit(":", 1)[1]
+        old_left = int(prop.get("mortgage_turns_left", "0") or "0")
+
+        if old_left > 1:
+            new_left = old_left - 1
+            client.hset(prop_key, mapping={"mortgage_turns_left": str(new_left)})
+
+            batch_updates.append({
+                "property_id": prop_id,
+                "turns_left": str(new_left),
+                "color": player_color,
+            })
+
+        else:
+            client.hset(prop_key, mapping={
+                "mortgaged": "0",
+                "mortgage_turns_left": "0",
+                "owner": ""
+            })
+            prop_name = prop.get("name", "")
+
+            release_msg = (
+                f"{player_username} не успел выкупить «{prop_name}» – "
+                "собственность возвращается банку."
+            )
+            release_log = create_game_log(session_id, release_msg)
+            await CHANNEL_LAYER.group_send(
+                f"game_{session_id}",
+                {"type": "game_log", "message": release_log["message"]}
+            )
+
+            await CHANNEL_LAYER.group_send(
+                f"game_{session_id}",
+                {
+                    "type": "property_released",
+                    "property_id": prop_id
+                }
+            )
+
+    if batch_updates:
+        await CHANNEL_LAYER.group_send(
+            f"game_{session_id}",
+            {
+                "type": "mortgage_batch_update",
+                "updates": batch_updates
+            }
+        )
+
     client.hset(player_key_current, "acted_props", json.dumps([]))
 
-    idx = turn_order.index(current)
+    idx = turn_order.index(current_player)
     next_idx = (idx + 1) % len(turn_order)
     next_turn = turn_order[next_idx]
-
     client.hset(meta_key, "current_turn", next_turn)
-    return next_turn
 
-
-def get_next_turn_and_log(session_id: str) -> dict:
-    meta_key = f"game:{session_id}:meta"
-
-    turn_order = json.loads(client.hget(meta_key, "turn_order") or "[]")
-    if not turn_order:
-        raise ValueError("Turn order is empty")
-    
-    current = client.hget(meta_key, "current_turn")
-    if current is None or current not in turn_order:
-        raise ValueError(f"Current turn '{current}' is not in turn_order")
-    
-    idx = turn_order.index(current)
-    prev_idx = (idx - 1) % len(turn_order)
-    prev_player = turn_order[prev_idx]
-
-    prev_player_key = f"game:{session_id}:player:{prev_player}"
-    client.hset(prev_player_key, "acted_props", json.dumps([]))
-
-
-    
-    next_turn = client.hget(meta_key, "current_turn")
-    if not next_turn:
-        raise ValueError("Не удалось определить next_turn")
-
-    player_key = f"game:{session_id}:player:{next_turn}"
-    username = client.hget(player_key, "username") or next_turn
-
+    player_key_next = f"game:{session_id}:player:{next_turn}"
+    username = client.hget(player_key_next, "username") or next_turn
     message = f"Сейчас ходит {username}."
     log_entry = create_game_log(session_id, message)
 
-    return {"next_turn": next_turn, "log": log_entry}
+    turn_state_key = f"game:{session_id}:turn_state"
+    new_expires = int(time.time()) + 55
+    new_ts = {
+        "phase": "roll_dice",
+        "current_player": str(next_turn),
+        "expires_at": str(new_expires),
+        "action_payload": ""
+    }
+    client.hset(turn_state_key, mapping=new_ts)
+
+    await CHANNEL_LAYER.group_send(
+        f"game_{session_id}",
+        {
+            "type": "turn_state_update",
+            "turn_state": new_ts
+        }
+    )
+    await CHANNEL_LAYER.group_send(
+        f"game_{session_id}",
+        {
+            "type": "game_log",
+            "message": log_entry["message"]
+        }
+    )
