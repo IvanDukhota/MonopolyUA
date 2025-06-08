@@ -144,20 +144,18 @@ class BuyMultipleItemAPIView(APIView):
             return Response({'error': 'Неправильна ціна або кількість'}, status=status.HTTP_400_BAD_REQUEST)
 
         buyer = request.user
-
+        total_spent = 0
+        total_bought = 0
         market_listings = MarketListing.objects.filter(
             item=item,
             user_price__lte=user_price
         ).exclude(
             seller=buyer
         ).order_by('user_price')
-
         total_available = market_listings.count()
+
         if total_available < user_quantity:
             return Response({'error': 'Недостатньо товарів в продажу.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        total_spent = 0
-        total_bought = 0
 
         listings_to_buy = market_listings[:user_quantity]
 
@@ -260,7 +258,6 @@ RARITY_WEIGHTS = {
 
 class OpenCaseAPIView(APIView):
     permission_classes = [IsAuthenticated]
-
     @transaction.atomic
     def post(self, request):
         case_id = request.data.get("case_id")

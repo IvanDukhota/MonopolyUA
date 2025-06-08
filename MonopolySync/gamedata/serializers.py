@@ -16,5 +16,9 @@ class UserStatSerializer(serializers.ModelSerializer):
             return 0
         return round((obj.wins / obj.games) * 100, 1)
 
-
+class GameHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GameHistory
+        fields = ['id', 'played_at', 'result', 'points_earned', 'duration_minutes']
+        read_only_fields = ['played_at', 'id']
 
