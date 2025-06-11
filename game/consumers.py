@@ -17,22 +17,23 @@ from .redis_client import (
     mortgage_property,
     redeem_property,
     init_roll_dice_turn,
-    pass_turn_to_next
+    pass_turn_to_next,
+    pay_debt
 )
 
 MOVE_CARDS = [
     {
         "code": "get_out_of_jail",
-        "title": "Карточка «Освобождение из тюрьмы»",
-        "description": "При попадании в тюрьму вы сразу же освобождаетесь."
+        "title": "Картка «Звільнення з в'язниці»",
+        "description": "При попаданні у в'язницю ви одразу ж звільняєтеся."
     },
 ]
 
 MONEY_CARDS = [
     {
         "code": "birthday_bonus",
-        "title": "День рождения",
-        "description": "Банк выплачивает вам $1000 в подарок."
+        "title": "День народження",
+        "description": "Банк виплачує вам $1000 у подарунок."
     },
 ]
 
@@ -146,12 +147,12 @@ class GameConsumer(AsyncWebsocketConsumer):
                     if new_left > 1:
                         client.hset(player_key, "jail_turns_left", new_left)
                         log_text = (
-                            f"{username} пропускает ход, так как находится в тюрьме, "
-                            f"осталось пропустить {new_left} ход(ов)."
+                            f"{username} пропускає хід, оскільки перебуває у в'язниці, "
+                            f"залишилося пропустити {new_left} хід(ів)."
                         )
                         msg_text = (
-                            f"Вы пропускает ход, так как находится в тюрьме, "
-                            f"осталось пропустить {new_left} ход(ов)."
+                            f"Ви пропускаєте хід, оскільки перебуває у в'язниці,"
+                            f"залишилося пропустити {new_left} хід(ів)."
                         )
 
                     else:
@@ -160,12 +161,12 @@ class GameConsumer(AsyncWebsocketConsumer):
                             "in_jail": 0,
                         })
                         log_text = (
-                            f"{username} пропускает ход, так как находится в тюрьме, "
-                            "но выходит и в следующий раз сможет ходить."
+                            f"{username} пропускає хід, оскільки перебуває у в'язниці, "
+                            "але виходить і наступного разу зможе ходити."
                         )
                         msg_text = (
-                            f"Вы пропускает ход, так как находится в тюрьме, "
-                            "но выходите и в следующий раз сможете ходить."
+                            f"Ви пропускаєте хід, оскільки перебуває у в'язниці, "
+                            "але виходьте і наступного разу зможете ходити."
                         )
 
                     log = create_game_log(self.session_id, log_text)
@@ -411,8 +412,8 @@ class GameConsumer(AsyncWebsocketConsumer):
                             if immune:
                                 client.hset(player_key, "immune_to_jail", 0)
                                 msg_all = (
-                                    f"{username} попал на GoToPrison, "
-                                    "но использовал карту «Выход из тюрьмы» и сразу же освободился."
+                                    f"{username} потрапив на GoToPrison, "
+                                    "але використав карту «Вихід із в'язниці» і одразу ж звільнився."
                                 )
 
                                 log_entry = create_game_log(self.session_id, msg_all)
@@ -422,8 +423,8 @@ class GameConsumer(AsyncWebsocketConsumer):
                                 )
 
                                 msg_self = (
-                                    "Вы попали на клетку «GoToPrison», "
-                                    "но благодаря карте «Выход из тюрьмы» сразу же свободны."
+                                    "Ви потрапили на клітку GoToPrison, "
+                                    "але завдяки карті «Вихід із в'язниці» відразу ж вільні."
                                 )
                                 await self.channel_layer.group_send(
                                     f"user_{self.user_id}",
@@ -436,7 +437,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                                     "jail_turns_left": 3,
                                 })
 
-                                msg_all = f"{username} отправлен в тюрьму и пропустит 3 хода."
+                                msg_all = f"{username} відправлений у в'язницю та пропустить 3 ходи."
 
                                 log_entry = create_game_log(self.session_id, msg_all)
                                 await self.channel_layer.group_send(
@@ -444,7 +445,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                                     {"type": "game_log", "message": log_entry["message"]},
                                 )
 
-                                msg_self = "Вы попали на клетку «GoToPrison» и отправлены в тюрьму! Вам предстоит пропустить 3 хода."
+                                msg_self = "Ви потрапили на клітку GoToPrison і відправлені у в'язницю! Вам доведеться пропустити 3 ходи."
                                 await self.channel_layer.group_send(
                                     f"user_{self.user_id}",
                                     {"type": "message", "message": msg_self},
@@ -461,9 +462,18 @@ class GameConsumer(AsyncWebsocketConsumer):
                 try:
                     update = buy_property(self.session_id, self.user_id, property_id, property_name)
                 except ValueError as e:
-                    await self.send(
-                        text_data=json.dumps({"type": "error", "message": str(e)})
+                    msg_self = str(e)
+                    await self.channel_layer.group_send(
+                        f"user_{self.user_id}",
+                        {"type": "message", "message": msg_self}
                     )
+                    username = client.hget(f"game:{self.session_id}:player:{self.user_id}", "username") or str(self.user_id)
+                    log_msg = f"{username} не зміг купити власність {property_id} «{property_name}» через нестачу коштів."
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "game_log", "message": log_msg}
+                    )
+                    await pass_turn_to_next(self.session_id)
                     return
             
                 await self.channel_layer.group_send(
@@ -503,42 +513,170 @@ class GameConsumer(AsyncWebsocketConsumer):
             elif msg.get("type") == "confirm_pay_rent":
                 owner   = msg["owner"]
                 amount  = int(msg["amount"])
+                payer = str(self.user_id)
 
-                result = pay_rent(self.session_id, str(self.user_id), owner, amount)
+                result = pay_rent(self.session_id, payer, owner, amount)
+                action = result.get("action")
 
-                await self.channel_layer.group_send(
-                    self.group_name,
-                    {
-                        "type": "game_balance_update",
-                        "balances": {
-                            result["payer_id"]: result["payer_balance"],
-                            result["owner_id"]: result["owner_balance"],
-                        },
-                    }
-                )
+                if action == "normal":
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {
+                            "type": "game_balance_update",
+                            "balances": result["balances"],
+                        }
+                    )
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "game_log", "message": result["log"]["message"]}
+                    )
 
-                log_entry = result["log"]
-                await self.channel_layer.group_send(
-                    self.group_name,
-                    {
-                        "type": "game_log",
-                        "message": log_entry["message"]
-                    }
-                )
+                    await pass_turn_to_next(self.session_id)
 
-                await pass_turn_to_next(self.session_id)
+                elif action == "liquidate":
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "game_log", "message": result["log"]["message"]}
+                    )
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {
+                            "type": "turn_state_update",
+                            "turn_state": result["turn_state"]
+                        }
+                    )
+
+                elif action == "bankrupt":
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "game_log", "message": result["log"]["message"]}
+                    )
+                     # 2) Log returned properties
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "game_log", "message": result["return_log"]["message"]}
+                    )
+                    # 3) Inform all clients to clear bankrupt player's state
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {
+                            "type": "player_bankrupt",
+                            "player_id": self.user_id,
+                            "returned_properties": result["returned_properties"]
+                        }
+                    )
+                    # 4) Personal message to bankrupt player
+                    msg_self = (
+                        f"Вы обанкротились и заняли {result['place']}-е место из {result['total_players']}."
+                    )
+                    await self.channel_layer.group_send(
+                        f"user_{self.user_id}",
+                        {"type": "message", "message": msg_self},
+                    )
+                    # 5) Move to next turn
+                    await pass_turn_to_next(self.session_id)
+
+                elif action == "game_over":
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "game_log", "message": result["log"]["message"]}
+                    )
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "turn_state_update", "turn_state": result["turn_state"]}
+                    )
+
 
             if msg.get("type") == "confirm_pay_utility":
-                player = str(self.user_id)
+                payer = str(self.user_id)
                 owner = msg["owner"]
                 dice = msg["dice"]
                 multiplier = int(msg["multiplier"])         
-                total = sum(dice or [])
+                dice_sum = sum(dice or [])
+
+                result = process_utility_payment(self.session_id, payer, owner, dice_sum, multiplier)
+                action = result.get("action")
+
+                if action == "normal":
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {
+                            "type": "game_balance_update",
+                            "balances": result["balances"],
+                        }
+                    )
+                    log_entry = result["log"]
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "game_log", "message": log_entry["message"]}
+                    )
+                    await pass_turn_to_next(self.session_id)
+
+                elif result.get("action") == "liquidate":
+                    log_entry = result["log"]
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "game_log", "message": log_entry["message"]}
+                    )
+
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {
+                            "type": "turn_state_update",
+                            "turn_state": result["turn_state"]
+                        }
+                    )
+
+                elif action == "bankrupt":
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "game_log", "message": result["log"]["message"]}
+                    )
+                     # 2) Log returned properties
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "game_log", "message": result["return_log"]["message"]}
+                    )
+                    # 3) Inform all clients to clear bankrupt player's state
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {
+                            "type": "player_bankrupt",
+                            "player_id": self.user_id,
+                            "returned_properties": result["returned_properties"]
+                        }
+                    )
+                    # 4) Personal message to bankrupt player
+                    msg_self = (
+                        f"Ви збанкрутували і зайняли {result['place']}-е місце з {result['total_players']}."
+                    )
+                    await self.channel_layer.group_send(
+                        f"user_{self.user_id}",
+                        {"type": "message", "message": msg_self},
+                    )
+                    # 5) Move to next turn
+                    await pass_turn_to_next(self.session_id)
+
+                elif action == "game_over":
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "game_log", "message": result["log"]["message"]}
+                    )
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "turn_state_update", "turn_state": result["turn_state"]}
+                    )
+
+
+            elif msg.get("type") == "confirm_pay_debt":
+                payer = str(self.user_id)
+                creditor = msg["creditor"]
+                amount = int(msg["amount"])
 
                 try:
                     result = await asyncio.get_event_loop().run_in_executor(
                         None,
-                        lambda: process_utility_payment(self.session_id, player, owner, total, multiplier)
+                        lambda: pay_debt(self.session_id, payer, creditor, amount)
                     )
                 except ValueError as e:
                     await self.send(text_data=json.dumps({
@@ -563,8 +701,8 @@ class GameConsumer(AsyncWebsocketConsumer):
                         "message": log_entry["message"],
                     }
                 )
-
                 await pass_turn_to_next(self.session_id)
+
 
             elif msg.get("type") == "build_house":
                 property_id = msg.get("property_id")
@@ -574,10 +712,18 @@ class GameConsumer(AsyncWebsocketConsumer):
                         lambda: build_house(self.session_id, self.user_id, property_id)
                     )
                 except ValueError as e:
-                    await self.send(text_data=json.dumps({
-                        "type": "error",
-                        "message": str(e)
-                    }))
+                    msg_self = str(e)
+                    await self.channel_layer.group_send(
+                        f"user_{self.user_id}",
+                        {"type": "message", "message": msg_self}
+                    )
+                    username = client.hget(f"game:{self.session_id}:player:{self.user_id}", "username") or str(self.user_id)
+                    log_msg = f"{username} не зміг побудувати на {property_id} — нестача коштів."
+                    await self.channel_layer.group_send(
+                        self.group_name,
+                        {"type": "game_log", "message": log_msg}
+                    )
+                    await pass_turn_to_next(self.session_id)
                     return
 
                 await self.channel_layer.group_send(
@@ -808,4 +954,13 @@ class GameConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             "type": "property_released",
             "property_id": event["property_id"]
+        }))
+
+    async def player_bankrupt(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'player_bankrupt',
+            'player_id': event['player_id'],
+            'returned_properties': event['returned_properties'],
+            'place': event.get('place'),
+            'total_players': event.get('total_players')
         }))

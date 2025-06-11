@@ -41,7 +41,6 @@ async def monitor_all_games():
                 if state2.get("phase") == phase and state2.get("current_player") == player:
 
                     await handle_timeout_skip(session_id, player, phase, state2.get("action_payload"))
-                    await pass_turn_to_next(session_id)
 
 
 async def handle_timeout_skip(session_id: str, player_id: str, phase: str, action_payload: str):
@@ -61,6 +60,7 @@ async def handle_timeout_skip(session_id: str, player_id: str, phase: str, actio
             f"game_{session_id}",
             {"type": "game_log", "message": log["message"]}
         )
+        await pass_turn_to_next(session_id)
 
     elif phase == "await_pay_rent":
         payload = json.loads(action_payload or "{}")
@@ -68,59 +68,141 @@ async def handle_timeout_skip(session_id: str, player_id: str, phase: str, actio
         amount = int(payload.get("amount", 0))
         payer  = player_id
 
-        try:
-            result = pay_rent(session_id, payer, owner, amount)
+        result = pay_rent(session_id, payer, owner, amount)
+        action = result.get("action")
+
+        if action == "normal":
+            await CHANNEL_LAYER.group_send(
+                f"game_{session_id}",
+                {"type": "game_balance_update", "balances": result["balances"]}
+            )
+            await CHANNEL_LAYER.group_send(
+                f"game_{session_id}",
+                {"type": "game_log", "message": result["log"]["message"]}
+            )
+            await pass_turn_to_next(session_id)
+
+        elif action == "liquidate":
+            await CHANNEL_LAYER.group_send(
+                f"game_{session_id}",
+                {"type": "game_log", "message": result["log"]["message"]}
+            )
+            await CHANNEL_LAYER.group_send(
+                f"game_{session_id}",
+                {"type": "turn_state_update", "turn_state": result["turn_state"]}
+            )
+
+        elif action == "bankrupt":
+            await CHANNEL_LAYER.group_send(
+                f"game_{session_id}",
+                {"type": "game_log", "message": result["log"]["message"]}
+            )
+             # 2) Log returned properties
+            await CHANNEL_LAYER.group_send(
+                f"game_{session_id}",
+                {"type": "game_log", "message": result["return_log"]["message"]}
+            )
+            # 3) Inform all clients to clear bankrupt player's state
             await CHANNEL_LAYER.group_send(
                 f"game_{session_id}",
                 {
-                    "type": "game_balance_update",
-                    "balances": {
-                        result["payer_id"]: result["payer_balance"],
-                        result["owner_id"]: result["owner_balance"],
-                    },
-                },
+                    "type": "player_bankrupt",
+                    "player_id": player_id,
+                    "returned_properties": result["returned_properties"]
+                }
             )
-            log_entry = result["log"]
+            # 4) Personal message to bankrupt player
+            msg_self = (
+                f"Ви збанкрутували і зайняли {result['place']}-е місце з {result['total_players']}."
+            )
+            await CHANNEL_LAYER.group_send(
+                f"user_{player_id}",
+                {"type": "message", "message": msg_self},
+            )
+            # 5) Move to next turn
+            await pass_turn_to_next(session_id)
+
+        elif action == "game_over":
             await CHANNEL_LAYER.group_send(
                 f"game_{session_id}",
-                {"type": "game_log", "message": log_entry["message"]},
+                {"type": "game_log", "message": result["log"]["message"]}
             )
-        except ValueError:
-            bk_msg = f"{username} не спромігся сплатити оренду ${amount} – банкрут."
-            bk_log = create_game_log(session_id, bk_msg)
             await CHANNEL_LAYER.group_send(
                 f"game_{session_id}",
-                {"type": "game_log", "message": bk_log["message"]},
+                {"type": "turn_state_update", "turn_state": result["turn_state"]}
             )
 
     elif phase == "await_pay_utility":
         payload = json.loads(action_payload or "{}")
         payer = player_id
         owner = payload.get("owner")
-        amount = int(payload.get("amount", 0))
-        sum_dice = int(payload.get("sum", 12))
+        dice_sum = int(payload.get("sum", 12))
         multiplier = int(payload.get("multiplier", 0))
-        try:
-            result = process_utility_payment(session_id, payer, owner, sum_dice, multiplier)
+        
+        result = process_utility_payment(session_id, payer, owner, dice_sum, multiplier)
+        action = result.get("action")
+
+        if action == "normal":
+            await CHANNEL_LAYER.group_send(
+                f"game_{session_id}",
+                {"type": "game_balance_update", "balances": result["balances"]}
+            )
+            await CHANNEL_LAYER.group_send(
+                f"game_{session_id}",
+                {"type": "game_log", "message": result["log"]["message"]}
+            )
+            await pass_turn_to_next(session_id)
+
+        elif action == "liquidate":
+            await CHANNEL_LAYER.group_send(
+                f"game_{session_id}",
+                {"type": "game_log", "message": result["log"]["message"]}
+            )
+            await CHANNEL_LAYER.group_send(
+                f"game_{session_id}",
+                {"type": "turn_state_update", "turn_state": result["turn_state"]}
+            )
+
+        elif action == "bankrupt":
+            await CHANNEL_LAYER.group_send(
+                f"game_{session_id}",
+                {"type": "game_log", "message": result["log"]["message"]}
+            )
+             # 2) Log returned properties
+            await CHANNEL_LAYER.group_send(
+                f"game_{session_id}",
+                {"type": "game_log", "message": result["return_log"]["message"]}
+            )
+            # 3) Inform all clients to clear bankrupt player's state
             await CHANNEL_LAYER.group_send(
                 f"game_{session_id}",
                 {
-                    "type": "game_balance_update",
-                    "balances": result["balances"],
-                },
+                    "type": "player_bankrupt",
+                    "player_id": player_id,
+                    "returned_properties": result["returned_properties"]
+                }
             )
-            log_entry = result["log"]
+            # 4) Personal message to bankrupt player
+            msg_self = (
+                f"Ви збанкрутували і зайняли {result['place']}-е місце з {result['total_players']}."
+            )
+            await CHANNEL_LAYER.group_send(
+                f"user_{player_id}",
+                {"type": "message", "message": msg_self},
+            )
+            # 5) Move to next turn
+            await pass_turn_to_next(session_id)
+
+        elif action == "game_over":
             await CHANNEL_LAYER.group_send(
                 f"game_{session_id}",
-                {"type": "game_log", "message": log_entry["message"]},
+                {"type": "game_log", "message": result["log"]["message"]}
             )
-        except ValueError:
-            bk_msg = f"{username} не зміг оплатити рахунок за «утиліту» — банкрут."
-            bk_log = create_game_log(session_id, bk_msg)
             await CHANNEL_LAYER.group_send(
                 f"game_{session_id}",
-                {"type": "game_log", "message": bk_log["message"]},
+                {"type": "turn_state_update", "turn_state": result["turn_state"]}
             )
+
 
     elif phase == "roll_dice":
         skip_msg = f"Игрок {username} не встиг кинути кубики і пропускає хід."
@@ -129,8 +211,9 @@ async def handle_timeout_skip(session_id: str, player_id: str, phase: str, actio
             f"game_{session_id}",
             {"type": "game_log", "message": skip_log["message"]}
         )
+        await pass_turn_to_next(session_id)
 
-    else:
+    elif phase != "game_over":
         generic_msg = f"{username} не відповів вчасно на дію «{phase}» — пропускає хід."
         generic_log = create_game_log(session_id, generic_msg)
         await CHANNEL_LAYER.group_send(

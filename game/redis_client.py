@@ -1,7 +1,7 @@
 import redis
-import json
+import json, time
+from typing import Dict, Any
 from core.redis import client
-import time
 from channels.layers import get_channel_layer
 
 CHANNEL_LAYER = get_channel_layer()
@@ -112,8 +112,8 @@ def process_player_move(session_id: str, user_id: str, die1: int, die2: int) -> 
     cell_name = client.hget(f"{property}:{new_pos}", "name")
 
     log_message = (
-        f"{username} бросил {die1} и {die2}, "
-        f"переместился с клетки {old_pos} на клетку {new_pos} ({cell_name})."
+        f"{username} кинув {die1} й {die2}, "
+        f"перемістився з клітки {old_pos} на клітку {new_pos} ({cell_name})."
     )
 
     log_entry = create_game_log(session_id, log_message)
@@ -143,7 +143,7 @@ def buy_property(
 
     balance = int(client.hget(player_key, "balance"))
     if balance < price:
-        raise ValueError("Недостаточно средств")
+        raise ValueError("Недостатньо коштів")
 
     client.hincrby(player_key, "balance", -price)
 
@@ -153,7 +153,7 @@ def buy_property(
     color = client.hget(player_key, "color") or ""
 
     message = (
-        f"{username} купил собственность {property_id} {property_name} за ${price}."
+        f"{username} купив власність {property_id} {property_name} за ${price}."
     )
 
     log_entry = create_game_log(session_id, message)
@@ -172,26 +172,68 @@ def buy_property(
 def pay_rent(session_id: str, payer_id: str, owner_id: str, amount: int) -> dict:
     payer_key = f"game:{session_id}:player:{payer_id}"
     owner_key = f"game:{session_id}:player:{owner_id}"
+    
+    payer_balance = int(client.hget(payer_key, "balance") or 0)
 
-    client.hincrby(payer_key, "balance", -amount)
-    client.hincrby(owner_key, "balance", amount)
-
-    payer_balance = int(client.hget(payer_key, "balance"))
-    owner_balance = int(client.hget(owner_key, "balance"))
-
-    username = client.hget(payer_key, "username") or payer_id
+    payer_name = client.hget(payer_key, "username") or payer_id
     owner_name = client.hget(owner_key, "username") or owner_id
-    message = f"{username} заплатил аренду ${amount} игроку {owner_name}."
-    log_entry = create_game_log(session_id, message)
+    
+    
+    if payer_balance >= amount:
+        client.hincrby(payer_key, "balance", -amount)
+        client.hincrby(owner_key, "balance", amount)
 
-    return {
-        "payer_id": payer_id,
-        "owner_id": owner_id,
-        "amount": amount,
-        "payer_balance": payer_balance,
-        "owner_balance": owner_balance,
-        "log": log_entry,
-    }
+        new_payer_bal = int(client.hget(payer_key, "balance"))
+        new_owner_bal = int(client.hget(owner_key, "balance"))
+
+        balances = { payer_id: new_payer_bal, owner_id: new_owner_bal}
+
+        message = f"{payer_name} заплатив оренду ${amount} гравцю {owner_name}."
+        log_entry = create_game_log(session_id, message)
+
+        return {"action": "normal", "balances": balances, "log": log_entry}
+    
+    total_assets = calculate_max_balance(session_id, payer_id)
+    max_possible = payer_balance + total_assets
+
+    if max_possible >= amount:
+        log_msg = (
+            f"{payer_name} не має достатньо готівки (${payer_balance}), "
+            f"щоб сплатити оренду ${amount} гравцю {owner_name}. Початок продажу власності."
+        )
+
+        log_entry = create_game_log(session_id, log_msg)
+
+        turn_state_key = f"game:{session_id}:turn_state"
+        deadline = int(time.time()) + 180
+
+        payload = {
+                "currentCash": payer_balance,
+                "totalOwed": amount,
+                "totalAssets": total_assets,
+                "creditorId": owner_id,
+                "creditorName": owner_name,
+            }
+        
+        mapping = {
+                "phase": "await_pay_debt",
+                "current_player": payer_id,
+                "expires_at": str(deadline),
+                "action_payload":  json.dumps(payload),
+            }
+        
+        client.hset(turn_state_key, mapping=mapping)
+        new_state = client.hgetall(turn_state_key)
+        
+        return {"action": "liquidate", "turn_state": new_state, "log": log_entry}
+    
+    reason = f"{payer_name} не зміг сплатити утиліту ${amount} та вичерпав усі можливі активи — банкрутство."
+    log_entry = create_game_log(session_id, reason)
+
+    result = process_bankruptcy(session_id, payer_id, payer_name)
+    result["log"] = log_entry
+
+    return result
 
 
 def process_utility_payment(
@@ -201,26 +243,216 @@ def process_utility_payment(
     owner_key = f"game:{session_id}:player:{owner_id}"
 
     amount = sum * multiplie
-    payer_balance = int(client.hget(payer_key, "balance"))
-    if payer_balance < amount:
-        raise ValueError("Недостаточно средств для оплаты utility")
 
-    new_payer_bal = client.hincrby(payer_key, "balance", -amount)
-    new_owner_bal = client.hincrby(owner_key, "balance", amount)
+    payer_balance = int(client.hget(payer_key, "balance") or 0)
+
+    payer_name = client.hget(payer_key, "username") or payer_id
+    owner_name = client.hget(owner_key, "username") or owner_id
+
+    if payer_balance >= amount:
+        new_payer_bal = client.hincrby(payer_key, "balance", -amount)
+        new_owner_bal = client.hincrby(owner_key, "balance", amount)
+
+        balances = {
+            payer_id: new_payer_bal,
+            owner_id: new_owner_bal,
+        }
+
+        message = f"{payer_name} заплатил утиліту ({sum}×{multiplie}) {amount}$ гравцю {owner_name}."
+        log_entry = create_game_log(session_id, message)
+
+        return {
+            "action": "normal",
+            "balances": balances,
+            "log": log_entry,
+        }
+    
+    total_assets = calculate_max_balance(session_id, payer_id)
+    max_possible = payer_balance + total_assets
+
+    if max_possible >= amount:
+
+        log_msg = (
+            f"{payer_name} не має достатньо готівки (${payer_balance}), "
+            f"щоб сплатити утиліту ${amount} гравцю {owner_name}. Початок продажу власності."
+        )
+        log_entry = create_game_log(session_id, log_msg)
+
+        turn_state_key = f"game:{session_id}:turn_state"
+        deadline = int(time.time()) + 180
+
+        payload = {
+            "currentCash": payer_balance,
+            "totalOwed": amount,
+            "totalAssets": total_assets,
+            "creditorId": owner_id,
+            "creditorName": owner_name,
+        }
+
+        mapping = {
+            "phase": "await_pay_debt",
+            "current_player": payer_id,
+            "expires_at": str(deadline),
+            "action_payload": json.dumps(payload),
+        }
+
+        client.hset(turn_state_key, mapping=mapping)
+        new_state = client.hgetall(turn_state_key)
+
+        return {
+            "action": "liquidate",
+            "turn_state": new_state,
+            "log": log_entry,
+        }
+    
+    reason = f"{payer_name} не зміг сплатити утиліту ${amount} та вичерпав усі можливі активи — банкрутство."
+    log_entry = create_game_log(session_id, reason)
+    
+    result = process_bankruptcy(session_id, payer_id, payer_name)
+    result["log"] = log_entry
+
+    return result
+    
+
+def pay_debt(session_id: str, payer_id: str, owner_id: str, amount: int) -> dict:
+    payer_key = f"game:{session_id}:player:{payer_id}"
+    owner_key = f"game:{session_id}:player:{owner_id}"
+
+    payer_balance = int(client.hget(payer_key, "balance") or 0)
+
+    payer_name = client.hget(payer_key, "username") or payer_id
+    owner_name = client.hget(owner_key, "username") or owner_id
+
+    if payer_balance < amount:
+        raise ValueError("Недостатньо коштів для сплати боргу")
+
+    client.hincrby(payer_key, "balance", -amount)
+    client.hincrby(owner_key, "balance", amount)
+
+    new_payer_bal = int(client.hget(payer_key, "balance") or 0)
+    new_owner_bal = int(client.hget(owner_key, "balance") or 0)
 
     balances = {
         payer_id: new_payer_bal,
         owner_id: new_owner_bal,
     }
 
-    payer_name = client.hget(payer_key, "username") or payer_id
-    owner_name = client.hget(owner_key, "username") or owner_id
-    message = f"{payer_name} заплатил аренду ({sum}×{multiplie}) {amount}$ игроку {owner_name}."
+    message = f"{payer_name} заплатив оренду ${amount} гравцю {owner_name}."
     log_entry = create_game_log(session_id, message)
 
     return {
         "balances": balances,
         "log": log_entry,
+    }
+
+
+def calculate_max_balance(session_id: str, player_id: str) -> int:
+    total_assets = 0
+
+    property_keys = client.keys(f"game:{session_id}:property:*")
+    for key in property_keys:
+
+        prop = client.hgetall(key) or {}
+
+        if prop.get("owner") != str(player_id):
+            continue
+
+        ptype = prop.get("type")
+        if ptype == "company":
+            houses = int(prop.get("houses", "0"))
+            if houses > 0:
+                house_price = int(prop.get("house_price", "0"))
+                hotel_price = int(prop.get("hotel_price", "0"))
+
+                if houses == 5:
+                    total_assets += int(hotel_price * 0.5)
+                    total_assets += 4 * int(house_price * 0.5)
+                else:
+                    total_assets += houses * int(house_price * 0.5)
+
+            if prop.get("mortgaged", "0") == "0":
+                buy_price = int(prop.get("buy_price", "0"))
+                total_assets += int(buy_price * 0.8)
+
+        elif ptype in ("automaker", "utility"):
+            if prop.get("mortgaged", "0") == "0":
+                buy_price = int(prop.get("buy_price", "0"))
+                total_assets += int(buy_price * 0.8)
+
+    return total_assets
+
+
+def process_bankruptcy(session_id: str, player_id: str, payer_name: str) -> Dict[str, Any]:
+    meta_key = f"game:{session_id}:meta"
+    prop_keys = client.keys(f"game:{session_id}:property:*") or []
+    player_key = f"game:{session_id}:player:{player_id}"
+    
+    returned = []
+    details = []
+    for prop_key in prop_keys:
+        prop = client.hgetall(prop_key) or {}
+        if prop.get("owner") == player_id:
+            pid = prop_key.split(':')[-1]
+            returned.append(pid)
+            name = prop.get('name', '')
+            details.append(f"{pid} - {name}")
+
+            reset = {"owner": "", "mortgaged": "0", "mortgage_turns_left": "0"}
+            if prop.get("type") == "company":
+                reset["houses"] = "0"
+            client.hset(prop_key, mapping=reset)
+
+
+    turn_order = json.loads(client.hget(meta_key, "turn_order") or "[]")
+    total_players = len(turn_order)
+
+    place = total_players
+    client.hset(player_key, "place", place)
+
+    new_order = [pid for pid in turn_order if pid != player_id]
+    client.hset(meta_key, "turn_order", json.dumps(new_order))
+
+    if len(new_order) == 1:
+        last_pid = new_order[0]
+        client.hset(f"game:{session_id}:player:{last_pid}", "place", 1)
+
+        players_list = client.lrange(f"game:{session_id}:players", 0, -1) or []
+        rankings: Dict[str, str] = {}
+
+        for pid in players_list:
+            pid = pid.decode() if isinstance(pid, bytes) else pid
+            raw_place = client.hget(f"game:{session_id}:player:{pid}", "place")
+            p_place = raw_place.decode() if isinstance(raw_place, bytes) else raw_place
+            rankings[p_place] = pid
+
+        turn_state_key = f"game:{session_id}:turn_state"
+        deadline = int(time.time()) + 300
+        payload = {"rankings": rankings}
+        mapping = {
+            "phase": "game_over",
+            "current_player": "",
+            "expires_at": str(deadline),
+            "action_payload": json.dumps(payload)
+        }
+
+        client.hset(turn_state_key, mapping=mapping)
+        new_state = client.hgetall(turn_state_key)
+
+        return {
+            "action": "game_over",
+            "turn_state": new_state
+        }
+
+    log_lines = [f'Вся власність {payer_name} перейшла банку:'] + details
+    return_msg = "\n".join(log_lines)
+    return_log = create_game_log(session_id, return_msg)
+
+    return {
+        "action": "bankrupt",
+        "return_log": return_log,
+        "returned_properties": returned,
+        "place": place,
+        "total_players": total_players
     }
 
 
@@ -242,11 +474,11 @@ def build_house(session_id: str, user_id: str, property_id: str) -> dict:
 
     owner = client.hget(prop_key, "owner")
     if owner != str(user_id):
-        raise ValueError("Вы не являетесь владельцем этой карточки.")
+        raise ValueError("Ви не є власником цієї картки.")
 
     group = client.hget(prop_key, "group")
     if not group:
-        raise ValueError("Нельзя строить на этой карточке (не является company).")
+        raise ValueError("Не можна будувати на цій картці (не є company).")
 
     keys = client.keys(f"game:{session_id}:property:*")
     same_group_props = []
@@ -258,12 +490,12 @@ def build_house(session_id: str, user_id: str, property_id: str) -> dict:
     for p in same_group_props:
         if p.get("owner") != str(user_id):
             raise ValueError(
-                "У вас нет монополии: не все карточки группы принадлежат вам."
+                "У вас немає монополії: не всі картки групи належать вам."
             )
 
     existing_houses = int(client.hget(prop_key, "houses") or 0)
     if existing_houses >= 5:
-        raise ValueError("Достигнут максимум (уже стоит отель).")
+        raise ValueError("Досягнуто максимум (вже стоїть готель).")
 
     house_price = int(client.hget(prop_key, "house_price") or 0)
     hotel_price = int(client.hget(prop_key, "hotel_price") or 0)
@@ -274,7 +506,7 @@ def build_house(session_id: str, user_id: str, property_id: str) -> dict:
 
     balance = int(client.hget(player_key, "balance") or 0)
     if balance < price_to_pay:
-        raise ValueError("Недостаточно средств для покупки дома/отеля.")
+        raise ValueError("Недостатньо коштів для придбання будинку/готелю.")
 
     new_balance = client.hincrby(player_key, "balance", -price_to_pay)
 
@@ -283,7 +515,7 @@ def build_house(session_id: str, user_id: str, property_id: str) -> dict:
     username = client.hget(player_key, "username") or str(user_id)
     what_built = "отель" if new_houses == 5 else "дом"
 
-    message = f"{username} построил {what_built} на {property_id}: {property_name}."
+    message = f"{username} побудував {what_built} на {property_id}: {property_name}."
 
     log_entry = create_game_log(session_id, message)
 
@@ -324,11 +556,11 @@ def sell_house(session_id: str, user_id: str, property_id: str) -> dict:
 
     owner = client.hget(prop_key, "owner")
     if owner != str(user_id):
-        raise ValueError("Вы не являетесь владельцем этой карточки.")
+        raise ValueError("Ви не є власником цієї картки.")
 
     current_houses = int(client.hget(prop_key, "houses") or 0)
     if current_houses <= 0:
-        raise ValueError("Нет домов для продажи.")
+        raise ValueError("Немає будинків на продаж.")
 
     if current_houses == 5:
         refund_amount = int(client.hget(prop_key, "hotel_price") or 0)
@@ -342,11 +574,11 @@ def sell_house(session_id: str, user_id: str, property_id: str) -> dict:
     username = client.hget(player_key, "username") or str(user_id)
 
     if current_houses == 5:
-        what_sold = "отель"
+        what_sold = "готель"
     else:
-        what_sold = "дом"
+        what_sold = "будинок"
 
-    message = f"{username} продал {what_sold} на {property_id}:{property_name} и получил {refund_amount}$. "
+    message = f"{username} продав {what_sold} на {property_id}:{property_name} і отримав {refund_amount}$. "
     log_entry = create_game_log(session_id, message)
 
     return {
@@ -375,10 +607,10 @@ def mortgage_property(session_id: str, user_id: str, property_id: str) -> dict:
 
     owner = client.hget(prop_key, "owner")
     if owner != str(user_id):
-        raise ValueError("Вы не являетесь владельцем этой карточки.")
+        raise ValueError("Ви не є власником цієї картки.")
 
     if client.hget(prop_key, "mortgaged") == "1":
-        raise ValueError("Эта собственность уже под залогом.")
+        raise ValueError("Ця власність під заставою.")
 
     group = client.hget(prop_key, "group")
     if group:
@@ -388,7 +620,7 @@ def mortgage_property(session_id: str, user_id: str, property_id: str) -> dict:
             if p.get("type") == "company" and p.get("group") == group:
                 if int(p.get("houses", "0")) > 0:
                     raise ValueError(
-                        "Нельзя заложить, пока есть дома/отель в этом филиале."
+                        "Не можна закласти, поки є будинки/готель у цій філії."
                     )
 
     client.hset(prop_key, "mortgaged", "1")
@@ -404,7 +636,7 @@ def mortgage_property(session_id: str, user_id: str, property_id: str) -> dict:
     property_name = client.hget(prop_key, "name")
 
     message = (
-        f"{username} заложил собственность {property_id}: {property_name} за {refund}$."
+        f"{username} заклав власність {property_id}: {property_name} за {refund}$."
     )
     log_entry = create_game_log(session_id, message)
 
@@ -436,10 +668,10 @@ def redeem_property(session_id: str, user_id: str, property_id: str) -> dict:
 
     owner = client.hget(prop_key, "owner")
     if owner != str(user_id):
-        raise ValueError("Вы не являетесь владельцем этой карточки.")
+        raise ValueError("Ви не є власником цієї картки.")
 
     if client.hget(prop_key, "mortgaged") != "1":
-        raise ValueError("Эта собственность не находится под залогом.")
+        raise ValueError("Ця власність не перебуває під заставою.")
 
     buy_price = int(client.hget(prop_key, "buy_price") or 0)
     cost = int(buy_price * 0.9)
@@ -447,7 +679,7 @@ def redeem_property(session_id: str, user_id: str, property_id: str) -> dict:
     balance = int(client.hget(player_key, "balance") or "0")
 
     if balance < cost:
-        raise ValueError("Недостаточно средств для выкупа из-под залога.")
+        raise ValueError("Недостатньо коштів на викуп з-під застави.")
 
     new_balance = client.hincrby(player_key, "balance", -cost)
 
@@ -458,7 +690,7 @@ def redeem_property(session_id: str, user_id: str, property_id: str) -> dict:
     property_name = client.hget(prop_key, "name")
 
     message = (
-        f"{username} выкупил собственность {property_id}: {property_name} за {cost}$."
+        f"{username} викупив власність {property_id}: {property_name} за {cost}$."
     )
     log_entry = create_game_log(session_id, message)
 
@@ -488,8 +720,29 @@ async def pass_turn_to_next(session_id: str) -> None:
         raise ValueError("Turn order is empty")
 
     current_player = client.hget(meta_key, "current_turn")
+    next_turn = None
+        
     if current_player is None or current_player not in turn_order:
-        raise ValueError(f"Current turn '{current_player}' is not in turn_order")
+        players_key = f"game:{session_id}:players"
+        raw = client.lrange(players_key, 0, -1) or []
+        players_list = [pid.decode() if isinstance(pid, bytes) else pid for pid in raw]
+        try:
+            start_idx = players_list.index(current_player)
+        except ValueError:
+            raise ValueError(f"Current turn '{current_player}' not found in players list")
+        n = len(players_list)
+        for i in range(1, n):
+            cand = players_list[(start_idx + i) % n]
+            if cand in turn_order:
+                next_turn = cand
+                break
+        if next_turn is None:
+            raise ValueError("No active players to pass turn to")
+        
+    else:
+        idx = turn_order.index(current_player)
+        next_turn = turn_order[(idx + 1) % len(turn_order)]
+    
 
     player_key_current = f"game:{session_id}:player:{current_player}"
     player_color = client.hget(player_key_current, "color") or ""
@@ -531,8 +784,8 @@ async def pass_turn_to_next(session_id: str) -> None:
             prop_name = prop.get("name", "")
 
             release_msg = (
-                f"{player_username} не успел выкупить «{prop_name}» – "
-                "собственность возвращается банку."
+                f"{player_username} не встиг викупити «{prop_name}» – "
+                "власність повертається банку."
             )
             release_log = create_game_log(session_id, release_msg)
             await CHANNEL_LAYER.group_send(
@@ -559,9 +812,6 @@ async def pass_turn_to_next(session_id: str) -> None:
 
     client.hset(player_key_current, "acted_props", json.dumps([]))
 
-    idx = turn_order.index(current_player)
-    next_idx = (idx + 1) % len(turn_order)
-    next_turn = turn_order[next_idx]
     client.hset(meta_key, "current_turn", next_turn)
 
     player_key_next = f"game:{session_id}:player:{next_turn}"
@@ -570,11 +820,11 @@ async def pass_turn_to_next(session_id: str) -> None:
     log_entry = create_game_log(session_id, message)
 
     turn_state_key = f"game:{session_id}:turn_state"
-    new_expires = int(time.time()) + 55
+
     new_ts = {
         "phase": "roll_dice",
         "current_player": str(next_turn),
-        "expires_at": str(new_expires),
+        "expires_at": str(int(time.time()) + 55),
         "action_payload": ""
     }
     client.hset(turn_state_key, mapping=new_ts)
